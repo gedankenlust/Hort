@@ -1,13 +1,30 @@
-<p align="center">
-  <img src=".github/main.png" alt="Hort" width="900">
-</p>
+<div align="center">
+
+<img src=".github/icon.png" width="128" alt="Hort app icon">
 
 # Hort
 
-A **local-first visual memory layer for macOS**. Hort quietly captures what
-you copy and screenshot, and routes it into a calm, tactical dashboard — the
-**dashboard** — where you can organise, search, retrieve and export it later without
-interrupting your flow.
+**A local-first visual memory layer for macOS.**
+
+Capture what you copy and screenshot into a calm, searchable card feed —  
+organise, find and export it later. No accounts, no cloud, no telemetry.
+
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-black?logo=apple)](#build--run)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-orange.svg?style=flat-square)](https://github.com/gedankenlust/Hort/releases)
+[![Built with Swift](https://img.shields.io/badge/Swift-SwiftUI-fa7343?logo=swift&logoColor=white&style=flat-square)](https://developer.apple.com/swiftui/)
+[![Local AI: Ollama](https://img.shields.io/badge/AI-Ollama%20(local)-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.com)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/gedankenlust/Hort/pulls)
+
+[**Download the latest App**](https://github.com/gedankenlust/Hort/releases) · [What it does](#what-it-does) · [Local AI](#local-ai-optional-fully-on-device) · [Privacy](#privacy--security) · [Build](#build--run)
+
+</div>
+
+---
+
+<p align="center">
+  <img src=".github/main.png" width="850" alt="Hort main window">
+</p>
 
 > It is not important to know how something works. It is important to know where it is.
 
