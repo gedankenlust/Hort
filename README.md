@@ -6,8 +6,8 @@
 
 **A local-first visual memory layer for macOS.**
 
-Capture what you copy and screenshot into a calm, searchable card feed —  
-organise, find and export it later. No accounts, no cloud, no telemetry.
+Capture what you copy and screenshot into a calm, searchable card feed.  
+Organise, find and export it later. No accounts, no cloud, no telemetry.
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-black?logo=apple)](#build--run)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -28,10 +28,10 @@ organise, find and export it later. No accounts, no cloud, no telemetry.
 
 > It is not important to know how something works. It is important to know where it is.
 
-Not a clipboard manager, not a notes app, not an AI assistant — a persistent
+Not a clipboard manager, not a notes app, not an AI assistant. Just a persistent
 memory dashboard you can leave open on a second monitor.
 
-*(Deutsche Version weiter unten — [zum deutschen Teil springen](#hort-deutsch).)*
+*(Deutsche Version weiter unten, [zum deutschen Teil springen](#hort-deutsch).)*
 
 ---
 
@@ -40,18 +40,18 @@ memory dashboard you can leave open on a second monitor.
 ### What it does
 
 Hort runs in the background and turns your digital context into **Memory
-Objects** — visual cards in a live feed:
+Objects**, visual cards in a live feed:
 
-- **Capture** — automatically saves clipboard **text**, **URLs** (with the right
+- **Capture:** automatically saves clipboard **text**, **URLs** (with the right
   type detection) and **images**, plus macOS **screenshots** from your Desktop.
-- **Organise** — new captures land in the **Inbox**; drag a card onto one of
+- **Organise:** new captures land in the **Inbox**; drag a card onto one of
   your own **Boards** (create your own), add **Tags**, mark **favourites**, or
   **archive** what you're done with. **All Memories** is the full stream.
-- **Retrieve** — instant search across content, source app and tags. Keyword
+- **Retrieve:** instant search across content, source app and tags. Keyword
   search (SQLite FTS5) is fused with **semantic search** (local embeddings) so
   you find things by meaning too; filter the feed by board or tag from the
   sidebar.
-- **Export** — package the memories you're viewing into an **Obsidian-friendly
+- **Export:** package the memories you're viewing into an **Obsidian-friendly
   ZIP**: one markdown file per memory (with frontmatter) plus an `assets/`
   folder with relatively-linked images.
 
@@ -72,14 +72,14 @@ Cards support **multi-select** (⌘-click) for bulk archive/delete.
 
 ### Local AI (optional, fully on-device)
 
-Hort can use a local [Ollama](https://ollama.com) instance for AI features —
-**off by default, opt-in in Settings, and nothing ever leaves your machine.**
+Hort can use a local [Ollama](https://ollama.com) instance for AI features.
+**Off by default, opt-in in Settings, and nothing ever leaves your machine.**
 
-- **Analyse** — generate a short summary and suggested tags for a memory, on
+- **Analyse:** generate a short summary and suggested tags for a memory, on
   demand from the Inspector or automatically via **Autopilot**.
-- **Semantic search** — every memory is embedded locally so search matches by
+- **Semantic search:** every memory is embedded locally so search matches by
   meaning, fused with keyword search.
-- **Ask your memory** — ask a question (✨ in the feed header or ⌘L) and get a
+- **Ask your memory:** ask a question (✨ in the feed header or ⌘L) and get a
   streamed, **source-cited** answer drawn only from your own captures.
 
 Everything runs against models on your own machine; retrieved notes are treated
@@ -104,7 +104,7 @@ strictly as data, never as instructions.
 
 ### How Screenshot Capture Works
 
-You mentioned that screenshots still land on your Desktop—**this is intentional and correct.**
+Screenshots still land on your Desktop. **This is intentional and correct.**
 
 Hort does not replace the macOS screenshot tool. Instead, it "watches" your Desktop folder like a silent assistant.
 
@@ -126,7 +126,7 @@ Everything lives locally under **`~/Library/Application Support/Hort/`**:
 
 | Path | Contents |
 | --- | --- |
-| `~/Library/Application Support/Hort/database/hort.sqlite` | SQLite database — the source of truth (memories, FTS5 search index, semantic vector index) |
+| `~/Library/Application Support/Hort/database/hort.sqlite` | SQLite database, the source of truth (memories, FTS5 search index, semantic vector index) |
 | `~/Library/Application Support/Hort/assets/` | Full-size captured images |
 | `~/Library/Application Support/Hort/thumbnails/` | Generated card thumbnails |
 | `~/Library/Application Support/Hort/exports/` | Single-memory markdown exports (from the Inspector) |
@@ -193,31 +193,30 @@ Scripts/    build-app.sh
 
 Eine **local-first visuelle Gedächtnis-Schicht für macOS**. Hort erfasst im
 Hintergrund, was du kopierst und screenshottest, und leitet es in ein ruhiges,
-taktisches Dashboard — der
-**Hort** — wo du es später organisieren, durchsuchen,
+taktisches Dashboard (den **Hort**), wo du es später organisieren, durchsuchen,
 wiederfinden und exportieren kannst, ohne deinen Arbeitsfluss zu unterbrechen.
 
 > Es ist nicht wichtig zu wissen, wie etwas funktioniert. Wichtig ist zu wissen, wo es ist.
 
-Kein Clipboard-Manager, keine Notiz-App, kein KI-Assistent — ein dauerhaftes
+Kein Clipboard-Manager, keine Notiz-App, kein KI-Assistent. Nur ein dauerhaftes
 Gedächtnis-System, das du auf einem zweiten Monitor offen lassen kannst.
 
 ### Was sie macht
 
 Hort läuft im Hintergrund und macht aus deinem digitalen Kontext **Memory
-Objects** — visuelle Karten in einem Live-Feed:
+Objects**, visuelle Karten in einem Live-Feed:
 
-- **Erfassen** — speichert automatisch **Text**, **URLs** (mit Typ-Erkennung) und
+- **Erfassen:** speichert automatisch **Text**, **URLs** (mit Typ-Erkennung) und
   **Bilder** aus der Zwischenablage sowie macOS-**Screenshots** vom Schreibtisch.
-- **Organisieren** — neue Captures landen in der **Inbox**; zieh eine Karte auf
+- **Organisieren:** neue Captures landen in der **Inbox**; zieh eine Karte auf
   eines deiner **selbst erstellten Boards**, vergib **Tags**, markiere
   **Favoriten** oder **archiviere** Erledigtes. **All Memories** ist der
   komplette Strom.
-- **Wiederfinden** — sofortige Suche über Inhalt, Quell-App und Tags. Die
+- **Wiederfinden:** sofortige Suche über Inhalt, Quell-App und Tags. Die
   Stichwortsuche (SQLite FTS5) wird mit **semantischer Suche** (lokale
   Embeddings) verschmolzen, sodass du auch nach Bedeutung findest; den Feed
   über die Sidebar nach Board oder Tag filtern.
-- **Exportieren** — die gerade angezeigten Memories als **Obsidian-kompatibles
+- **Exportieren:** die gerade angezeigten Memories als **Obsidian-kompatibles
   ZIP** packen: eine Markdown-Datei pro Memory (mit Frontmatter) plus einen
   `assets/`-Ordner mit relativ verlinkten Bildern.
 
@@ -240,14 +239,14 @@ Karten unterstützen **Mehrfachauswahl** (⌘-Klick) zum Archivieren/Löschen me
 ### Lokale KI (optional, komplett auf dem Gerät)
 
 Hort kann eine lokale [Ollama](https://ollama.com)-Instanz für KI-Funktionen
-nutzen — **standardmäßig aus, in den Einstellungen aktivierbar, und nichts
+nutzen. **Standardmäßig aus, in den Einstellungen aktivierbar, und nichts
 verlässt jemals deinen Rechner.**
 
-- **Analysieren** — erzeugt eine kurze Zusammenfassung und Tag-Vorschläge für
+- **Analysieren:** erzeugt eine kurze Zusammenfassung und Tag-Vorschläge für
   ein Memory, auf Knopfdruck im Inspector oder automatisch per **Autopilot**.
-- **Semantische Suche** — jedes Memory wird lokal eingebettet, sodass die Suche
+- **Semantische Suche:** jedes Memory wird lokal eingebettet, sodass die Suche
   nach Bedeutung trifft, verschmolzen mit der Stichwortsuche.
-- **Frag dein Gedächtnis** — stell eine Frage (✨ im Feed-Header oder ⌘L) und
+- **Frag dein Gedächtnis:** stell eine Frage (✨ im Feed-Header oder ⌘L) und
   bekomme eine gestreamte, **quellen-zitierte** Antwort, ausschließlich aus
   deinen eigenen Captures.
 
@@ -273,7 +272,7 @@ strikt als Daten behandelt, nie als Anweisungen.
 
 ### Wie die Screenshot-Erkennung funktioniert
 
-Screenshots landen weiterhin wie gewohnt auf deinem Schreibtisch — **das ist so gewollt.**
+Screenshots landen weiterhin wie gewohnt auf deinem Schreibtisch. **Das ist so gewollt.**
 
 Hort ersetzt nicht das macOS-eigene Screenshot-Tool, sondern "beobachtet" deinen Schreibtisch-Ordner wie ein stiller Assistent.
 
@@ -294,7 +293,7 @@ Alles liegt lokal unter **`~/Library/Application Support/Hort/`**:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `~/Library/Application Support/Hort/database/hort.sqlite` | SQLite-Datenbank — die Quelle der Wahrheit (Memories, FTS5-Suchindex, semantischer Vektor-Index) |
+| `~/Library/Application Support/Hort/database/hort.sqlite` | SQLite-Datenbank, die Quelle der Wahrheit (Memories, FTS5-Suchindex, semantischer Vektor-Index) |
 | `~/Library/Application Support/Hort/assets/` | Erfasste Bilder in voller Größe |
 | `~/Library/Application Support/Hort/thumbnails/` | Generierte Karten-Thumbnails |
 | `~/Library/Application Support/Hort/exports/` | Einzel-Markdown-Exporte (aus dem Inspector) |
