@@ -1,0 +1,136 @@
+/* Sidebar */
+"sidebar.inbox" = "Eingang";
+"sidebar.all" = "Alle Erinnerungen";
+"sidebar.favorites" = "Favoriten";
+"sidebar.archive" = "Archiv";
+"sidebar.boards" = "Boards";
+"sidebar.tags" = "Tags";
+"sidebar.new_board" = "Neues Board";
+"sidebar.system_live" = "System Aktiv";
+"sidebar.capture_paused" = "Erfassung Pausiert";
+"sidebar.rename_board" = "Board umbenennen";
+"sidebar.remove_board" = "Board löschen";
+"sidebar.new_folder" = "Ordner hinzufügen";
+"sidebar.remove_folder" = "Ordner löschen";
+"sidebar.add_folder_msg" = "Gib einen Namen für den neuen Unterordner in '%@' ein.";
+
+/* Settings */
+"settings.title" = "Einstellungen";
+"settings.tab.general" = "Allgemein";
+"settings.tab.privacy" = "Datenschutz";
+"settings.tab.ai" = "Lokale KI";
+"settings.general" = "Allgemein";
+"settings.language" = "Sprache";
+"settings.language.system" = "Systemstandard";
+"settings.language.en" = "English";
+"settings.language.de" = "Deutsch";
+"settings.capture" = "Erfassung";
+"settings.capture.enabled" = "Hintergrund-Erfassung aktivieren";
+"settings.privacy" = "Datenschutz";
+"settings.privacy.ignore_passwords" = "Passwörter/Private Ablage ignorieren";
+"settings.privacy.ignore_passwords_desc" = "Überspringt als sensibel markierte Inhalte (z.B. Passwort-Manager)";
+"settings.privacy.screenshot_warning" = "Schreibtisch-Screenshots werden unabhängig von der aktiven App erfasst. Lösche sensible Bildinhalte bei Bedarf manuell.";
+"settings.ai.title" = "Lokale KI (Ollama)";
+"settings.ai.enabled" = "Lokale KI-Analyse aktivieren";
+"settings.ai.autopilot" = "AI Autopilot (Automatische Hintergrund-Analyse)";
+"settings.ai.loading" = "Lade Modelle...";
+"settings.ai.model" = "Modell:";
+"settings.ai.offline" = "⚠️ Ollama nicht erreichbar unter http://localhost:11434. Starte Ollama, um Modelle aufzulisten.";
+"settings.semantic.title" = "Semantische Suche & Fragen";
+"settings.semantic.enabled" = "Semantische Suche & \"Frag dein Gedächtnis\" aktivieren";
+"settings.semantic.desc" = "Indiziert Erinnerungen lokal (Embeddings) für bedeutungsbasierte Suche und das Frage-Panel. Benötigt Ollama.";
+"settings.semantic.indexing" = "Indiziere %@ Erinnerungen…";
+"settings.semantic.model" = "Embedding-Modell:";
+"settings.semantic.model_warning" = "⚠️ Änderung des Modells löscht den lokalen Suchindex und baut ihn im Hintergrund neu auf.";
+"settings.excluded_apps" = "Ausgeschlossene Apps (Bundle IDs)";
+"settings.excluded_apps.empty" = "Keine Apps ausgeschlossen";
+"settings.excluded_apps.placeholder" = "com.beispiel.app";
+"settings.danger_zone" = "Gefahrenzone";
+"settings.clear_all" = "Alle Erinnerungen löschen";
+"settings.clear_all_confirm" = "Bist du sicher? Das kann nicht rückgängig gemacht werden.";
+
+/* Inspector */
+"inspector.select_memory" = "Wähle ein Memory aus";
+"inspector.source" = "Quelle";
+"inspector.id" = "ID";
+"inspector.tags" = "Tags";
+"inspector.add_tag" = "Tag hinzufügen...";
+"inspector.actions" = "Aktionen";
+"inspector.copy" = "In Zwischenablage kopieren";
+"inspector.export" = "Als Markdown exportieren";
+"inspector.archive" = "Archivieren";
+"inspector.unarchive" = "Dearchivieren";
+"inspector.delete" = "Löschen";
+"inspector.analyze" = "Mit KI analysieren";
+"inspector.reanalyze" = "Erneut analysieren";
+"inspector.analyzing" = "Modell analysiert Inhalt...";
+"inspector.ocr_text" = "OCR Text";
+"inspector.content" = "Inhalt";
+"inspector.ai_analysis" = "KI-Analyse";
+"inspector.selected" = "ausgewählt";
+"inspector.move_to_board" = "Auf Board verschieben";
+"inspector.move_to_inbox" = "Eingang (kein Board)";
+"inspector.favorite_all" = "Alle favorisieren";
+"inspector.unfavorite_all" = "Favorit entfernen";
+"inspector.archive_all" = "Alle archivieren";
+"inspector.unarchive_all" = "Alle wiederherstellen";
+"inspector.delete_all" = "Alle löschen";
+"inspector.clear_selection" = "Auswahl aufheben";
+
+/* Dashboard */
+"dashboard.search" = "Suche";
+"dashboard.search_placeholder" = "Erinnerungen durchsuchen...";
+"dashboard.export_help" = "Angezeigte Memories als ZIP exportieren";
+"dashboard.selected" = "ausgewählt";
+"dashboard.clear_selection_help" = "Auswahl aufheben";
+"dashboard.multiselect_hint" = "⌘-Klick für Mehrfachauswahl";
+"dashboard.empty_search" = "Keine Treffer";
+"dashboard.empty_search_desc" = "Versuche es mit anderen Stichworten oder überprüfe die Schreibweise.";
+"dashboard.empty_inbox" = "Inbox leer";
+"dashboard.empty_inbox_desc" = "Kopierte Inhalte landen automatisch hier zum Einsortieren.";
+"dashboard.empty_all" = "Keine Einträge";
+"dashboard.empty_all_desc" = "Sobald du etwas in die Zwischenablage kopierst oder einen Screenshot machst, erscheint es hier.";
+"dashboard.empty_favorites" = "Keine Favoriten";
+"dashboard.empty_favorites_desc" = "Markiere eine Karte im Inspector mit einem Stern, um sie hier zu sehen.";
+"dashboard.empty_archive" = "Archiv ist leer";
+"dashboard.empty_archive_desc" = "Hier landen archivierte Memories. Du kannst sie im Inspector jederzeit wiederbeleben.";
+"dashboard.empty_board" = "Board \"%@\" ist leer";
+"dashboard.empty_board_desc" = "Zieh Karten aus der Inbox oder dem Gesamtfeed in der Sidebar direkt auf das Board \"%@\".";
+"dashboard.empty_folder" = "Ordner \"%@\" ist leer";
+"dashboard.empty_folder_desc" = "Zieh Karten aus der Inbox oder dem Gesamtfeed hierhin, um sie in den Ordner \"%@\" einzusortieren.";
+"dashboard.empty_tag" = "Keine Elemente mit #%@";
+"dashboard.empty_tag_desc" = "Füge den Tag \"%@\" im Inspector-Panel einer Karte hinzu, um sie hier zu filtern.";
+"dashboard.exported" = "Exportiert %@ → %@";
+"dashboard.export_failed" = "Export fehlgeschlagen";
+"dashboard.image_asset" = "Bild-Datei";
+
+/* Onboarding */
+"onboarding.status" = "SYSTEM_INITIALIZED // AMBIENT LAYER ACTIVE";
+"onboarding.title" = "Hort Memory System";
+"onboarding.subtitle" = "Dein lokales, visuelles Gedächtnis läuft im Hintergrund und wartet auf Inhalte.";
+"onboarding.step1.title" = "Erfassung & Analyse";
+"onboarding.step1.desc" = "Kopiere Texte, Bilder oder URLs. Mache Screenshots auf deinem Schreibtisch. Hort erfasst sie geräuschlos.";
+"onboarding.step2.title" = "Workspace Ordnung";
+"onboarding.step2.desc" = "Erstelle Boards in der Sidebar. Ziehe Memory-Karten einfach per Drag & Drop auf Boards, Tags oder ins Archiv.";
+"onboarding.step3.title" = "Obsidian Export";
+"onboarding.step3.desc" = "Exportiere deine Boards als Obsidian-kompatible Markdown-ZIP-Dateien inklusive aller verknüpften Bildmedien.";
+"onboarding.awaiting" = "system_status: awaiting_first_capture";
+
+/* Ask */
+"ask.title" = "Frag dein Gedächtnis";
+"ask.help" = "Frag dein Gedächtnis";
+"ask.placeholder" = "Stell eine Frage zu deinen Erinnerungen…";
+"ask.sources" = "Quellen";
+"ask.thinking" = "Durchsuche dein Gedächtnis…";
+"ask.no_results" = "Noch nichts Passendes in deinen Erinnerungen gefunden.";
+"ask.hint_title" = "Frag alles über das, was du gespeichert hast.";
+"ask.hint_body" = "Antworten kommen nur aus deinen Captures, mit Quellen — komplett lokal.";
+
+/* Common */
+"common.cancel" = "Abbrechen";
+"common.delete" = "Löschen";
+"common.add" = "Hinzufügen";
+"common.ok" = "OK";
+"common.name" = "Name";
+"common.change_color" = "Farbe ändern";
+"common.reset" = "Zurücksetzen";

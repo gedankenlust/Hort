@@ -1,0 +1,136 @@
+/* Sidebar */
+"sidebar.inbox" = "Inbox";
+"sidebar.all" = "All Memories";
+"sidebar.favorites" = "Favorites";
+"sidebar.archive" = "Archive";
+"sidebar.boards" = "Boards";
+"sidebar.tags" = "Tags";
+"sidebar.new_board" = "New board";
+"sidebar.system_live" = "System Live";
+"sidebar.capture_paused" = "Capture Paused";
+"sidebar.rename_board" = "Rename board";
+"sidebar.remove_board" = "Remove board";
+"sidebar.new_folder" = "Add folder";
+"sidebar.remove_folder" = "Remove folder";
+"sidebar.add_folder_msg" = "Enter a name for the new folder in '%@'.";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.tab.general" = "General";
+"settings.tab.privacy" = "Privacy";
+"settings.tab.ai" = "Local AI";
+"settings.general" = "General";
+"settings.language" = "Language";
+"settings.language.system" = "System Default";
+"settings.language.en" = "English";
+"settings.language.de" = "Deutsch";
+"settings.capture" = "Capture";
+"settings.capture.enabled" = "Enable background capture";
+"settings.privacy" = "Privacy";
+"settings.privacy.ignore_passwords" = "Ignore password/concealed clipboard";
+"settings.privacy.ignore_passwords_desc" = "Skips items marked sensitive (e.g. password managers)";
+"settings.privacy.screenshot_warning" = "Desktop screenshots are captured regardless of the active application. Manually delete sensitive images from the feed if needed.";
+"settings.ai.title" = "Local AI (Ollama)";
+"settings.ai.enabled" = "Enable local AI analysis";
+"settings.ai.autopilot" = "AI Autopilot (Auto background analysis)";
+"settings.ai.loading" = "Loading models...";
+"settings.ai.model" = "Model:";
+"settings.ai.offline" = "⚠️ Ollama not reachable at http://localhost:11434. Start Ollama to list models.";
+"settings.semantic.title" = "Semantic Search & Ask";
+"settings.semantic.enabled" = "Enable semantic search & Ask your memory";
+"settings.semantic.desc" = "Indexes memories locally (embeddings) for meaning-based search and the Ask panel. Requires Ollama.";
+"settings.semantic.indexing" = "Indexing %@ memories…";
+"settings.semantic.model" = "Embedding Model:";
+"settings.semantic.model_warning" = "⚠️ Changing this model clears the local search index and rebuilds it in the background.";
+"settings.excluded_apps" = "Excluded Apps (Bundle IDs)";
+"settings.excluded_apps.empty" = "No apps excluded";
+"settings.excluded_apps.placeholder" = "com.example.app";
+"settings.danger_zone" = "Danger Zone";
+"settings.clear_all" = "Clear all memories";
+"settings.clear_all_confirm" = "Are you sure? This cannot be undone.";
+
+/* Inspector */
+"inspector.select_memory" = "Select a memory";
+"inspector.source" = "Source";
+"inspector.id" = "ID";
+"inspector.tags" = "Tags";
+"inspector.add_tag" = "add tag...";
+"inspector.actions" = "Actions";
+"inspector.copy" = "Copy to clipboard";
+"inspector.export" = "Export to markdown";
+"inspector.archive" = "Archive";
+"inspector.unarchive" = "Unarchive";
+"inspector.delete" = "Delete";
+"inspector.analyze" = "Analyze with AI";
+"inspector.reanalyze" = "Re-analyze with AI";
+"inspector.analyzing" = "Model analyzing content...";
+"inspector.ocr_text" = "OCR Text";
+"inspector.content" = "Content";
+"inspector.ai_analysis" = "AI Analysis";
+"inspector.selected" = "selected";
+"inspector.move_to_board" = "Move to board";
+"inspector.move_to_inbox" = "Inbox (no board)";
+"inspector.favorite_all" = "Favorite all";
+"inspector.unfavorite_all" = "Remove favorite";
+"inspector.archive_all" = "Archive all";
+"inspector.unarchive_all" = "Restore all";
+"inspector.delete_all" = "Delete all";
+"inspector.clear_selection" = "Clear selection";
+
+/* Dashboard */
+"dashboard.search" = "Search";
+"dashboard.search_placeholder" = "Search memories...";
+"dashboard.export_help" = "Export shown memories as a ZIP";
+"dashboard.selected" = "selected";
+"dashboard.clear_selection_help" = "Clear selection";
+"dashboard.multiselect_hint" = "⌘-click to select multiple";
+"dashboard.empty_search" = "No results";
+"dashboard.empty_search_desc" = "Try different keywords or check your spelling.";
+"dashboard.empty_inbox" = "Inbox empty";
+"dashboard.empty_inbox_desc" = "Copied content automatically lands here for sorting.";
+"dashboard.empty_all" = "No entries";
+"dashboard.empty_all_desc" = "Content will appear here as soon as you copy something or take a screenshot.";
+"dashboard.empty_favorites" = "No favorites";
+"dashboard.empty_favorites_desc" = "Mark a card with a star in the Inspector to see it here.";
+"dashboard.empty_archive" = "Archive is empty";
+"dashboard.empty_archive_desc" = "Archived memories land here. You can restore them in the Inspector.";
+"dashboard.empty_board" = "Board \"%@\" is empty";
+"dashboard.empty_board_desc" = "Drag cards from the Inbox or Feed onto the board \"%@\" in the sidebar.";
+"dashboard.empty_folder" = "Folder \"%@\" is empty";
+"dashboard.empty_folder_desc" = "Drag cards here to sort them into the folder \"%@\".";
+"dashboard.empty_tag" = "No items with #%@";
+"dashboard.empty_tag_desc" = "Add the tag \"%@\" to a card in the Inspector to filter here.";
+"dashboard.exported" = "Exported %@ → %@";
+"dashboard.export_failed" = "Export failed";
+"dashboard.image_asset" = "Image Asset";
+
+/* Onboarding */
+"onboarding.status" = "SYSTEM_INITIALIZED // AMBIENT LAYER ACTIVE";
+"onboarding.title" = "Hort Memory System";
+"onboarding.subtitle" = "Your local, visual memory layer runs in the background and awaits content.";
+"onboarding.step1.title" = "Ingestion & Capture";
+"onboarding.step1.desc" = "Copy text, images or URLs. Take screenshots on your Desktop. Hort captures them silently.";
+"onboarding.step2.title" = "Workspace Sorting";
+"onboarding.step2.desc" = "Create boards in the sidebar. Drag & drop memory cards onto boards, tags or into the Archive.";
+"onboarding.step3.title" = "Obsidian Export";
+"onboarding.step3.desc" = "Export your boards as Obsidian-compatible Markdown ZIP files including all linked image assets.";
+"onboarding.awaiting" = "system_status: awaiting_first_capture";
+
+/* Ask */
+"ask.title" = "Ask your memory";
+"ask.help" = "Ask your memory";
+"ask.placeholder" = "Ask a question about your memories…";
+"ask.sources" = "Sources";
+"ask.thinking" = "Searching your memory…";
+"ask.no_results" = "Nothing relevant found in your memories yet.";
+"ask.hint_title" = "Ask anything about what you've saved.";
+"ask.hint_body" = "Answers come only from your captures, with sources — fully local.";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.delete" = "Delete";
+"common.add" = "Add";
+"common.ok" = "OK";
+"common.name" = "Name";
+"common.change_color" = "Change color";
+"common.reset" = "Reset";

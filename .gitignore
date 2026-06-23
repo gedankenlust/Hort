@@ -1,0 +1,22 @@
+# Swift / SwiftPM build artefacts
+.build/
+.swiftpm/
+dist/
+DerivedData/
+
+# Xcode user state
+*.xcuserstate
+*.xcuserdatad
+
+# macOS
+.DS_Store
+
+# Internal Documentation & Specs
+Docs/
+Specs/
+
+# IDEs & AI Agents
+.claude/
+.idea/
+.vscode/
+*.env*
