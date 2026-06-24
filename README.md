@@ -37,6 +37,36 @@ memory dashboard you can leave open on a second monitor.
 
 ## English
 
+### Download & Install
+
+**Just want to use Hort?** Download the latest **`Hort-1.0.0.zip`** from the
+[Releases](https://github.com/gedankenlust/Hort/releases) page, unzip it, and
+move **Hort.app** into your **Applications** folder.
+
+**First launch (the app is open-source and unsigned):** macOS refuses to open it
+the first time because it is not from an "identified developer". This is
+expected. To allow it:
+
+- **macOS 15 (Sequoia) or newer:** double-click Hort, dismiss the warning, then
+  open **System Settings → Privacy & Security**, scroll down, and click
+  **"Open Anyway"**. Confirm once.
+- **Older macOS:** **right-click (or Control-click) Hort.app → "Open"**, then
+  click **"Open"** in the dialog.
+- **If macOS says the app is "damaged" (Apple Silicon):** clear the quarantine
+  flag once in Terminal:
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/Hort.app
+  ```
+
+You only need to do this once per install or update. Hort is not notarized
+because it ships without a paid Apple Developer account. Everything still runs
+100% locally on your Mac.
+
+**Requirements:** macOS 14 or newer. The AI features are optional and need a
+local [Ollama](https://ollama.com) install.
+
+---
+
 ### What it does
 
 Hort runs in the background and turns your digital context into **Memory
@@ -200,6 +230,36 @@ wiederfinden und exportieren kannst, ohne deinen Arbeitsfluss zu unterbrechen.
 
 Kein Clipboard-Manager, keine Notiz-App, kein KI-Assistent. Nur ein dauerhaftes
 Gedächtnis-System, das du auf einem zweiten Monitor offen lassen kannst.
+
+### Download & Installation
+
+**Willst du Hort einfach nutzen?** Lade die aktuelle **`Hort-1.0.0.zip`** von der
+[Releases](https://github.com/gedankenlust/Hort/releases)-Seite, entpacke sie und
+zieh **Hort.app** in deinen **Programme**-Ordner.
+
+**Erster Start (die App ist quelloffen und unsigniert):** macOS verweigert den
+ersten Start, weil die App nicht von einem "verifizierten Entwickler" stammt.
+Das ist normal. So erlaubst du sie:
+
+- **macOS 15 (Sequoia) oder neuer:** Hort doppelklicken, Warnung schließen, dann
+  **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, nach unten scrollen
+  und auf **"Trotzdem öffnen"** klicken. Einmal bestätigen.
+- **Ältere macOS:** **Rechtsklick (oder Ctrl-Klick) auf Hort.app → "Öffnen"**,
+  dann im Dialog auf **"Öffnen"**.
+- **Falls macOS sagt, die App sei "beschädigt" (Apple Silicon):** einmal im
+  Terminal das Quarantäne-Flag entfernen:
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/Hort.app
+  ```
+
+Das ist nur einmal pro Installation oder Update nötig. Hort ist nicht
+notarisiert, weil es ohne kostenpflichtigen Apple Developer Account ausgeliefert
+wird. Alles läuft trotzdem zu 100 % lokal auf deinem Mac.
+
+**Voraussetzungen:** macOS 14 oder neuer. Die KI-Funktionen sind optional und
+benötigen ein lokales [Ollama](https://ollama.com).
+
+---
 
 ### Was sie macht
 
