@@ -53,6 +53,7 @@
 "inspector.select_memory" = "Wähle ein Memory aus";
 "inspector.source" = "Quelle";
 "inspector.id" = "ID";
+"inspector.path" = "Pfad";
 "inspector.tags" = "Tags";
 "inspector.add_tag" = "Tag hinzufügen...";
 "inspector.actions" = "Aktionen";
@@ -124,7 +125,7 @@
 "ask.thinking" = "Durchsuche dein Gedächtnis…";
 "ask.no_results" = "Noch nichts Passendes in deinen Erinnerungen gefunden.";
 "ask.hint_title" = "Frag alles über das, was du gespeichert hast.";
-"ask.hint_body" = "Antworten kommen nur aus deinen Captures, mit Quellen — komplett lokal.";
+"ask.hint_body" = "Antworten kommen nur aus deinen Captures, mit Quellen. Komplett lokal.";
 
 /* Common */
 "common.cancel" = "Abbrechen";

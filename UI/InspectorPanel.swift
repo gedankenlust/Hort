@@ -78,6 +78,19 @@ struct InspectorPanel: View {
                     metaRow(LocalizedStringKey("inspector.id"), String(memory.id.uuidString.prefix(8)).lowercased())
                 }
 
+                if let path = filePath(memory) {
+                    section("inspector.path") {
+                        Text(path)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(Theme.Colors.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .padding(10)
+                            .background(Theme.Colors.background)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+
                 if let content = memory.content, !content.isEmpty, memory.type != .image, memory.type != .screenshot {
                     section("inspector.content") {
                         ScrollView {
@@ -205,6 +218,19 @@ struct InspectorPanel: View {
             }
             .padding(18)
         }
+    }
+
+    /// The on-disk path worth showing: the original file path for Finder
+    /// captures and screenshots, or the stored asset location for images.
+    private func filePath(_ memory: MemoryObject) -> String? {
+        if let p = memory.metadata["sourcePath"], !p.isEmpty { return p }
+        switch memory.type {
+        case .file, .screenshot, .image:
+            if let c = memory.content, !c.isEmpty, c != "Image" { return c }
+        default:
+            break
+        }
+        return nil
     }
 
     private func runAIAnalysis(for memory: MemoryObject) {
