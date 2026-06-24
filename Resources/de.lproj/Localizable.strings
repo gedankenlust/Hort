@@ -45,6 +45,8 @@
 "settings.excluded_apps" = "Ausgeschlossene Apps (Bundle IDs)";
 "settings.excluded_apps.empty" = "Keine Apps ausgeschlossen";
 "settings.excluded_apps.placeholder" = "com.beispiel.app";
+"settings.storage" = "Datenspeicher";
+"settings.storage.reveal" = "Im Finder zeigen";
 "settings.danger_zone" = "Gefahrenzone";
 "settings.clear_all" = "Alle Erinnerungen löschen";
 "settings.clear_all_confirm" = "Bist du sicher? Das kann nicht rückgängig gemacht werden.";

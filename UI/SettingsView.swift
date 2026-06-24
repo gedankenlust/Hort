@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @ObservedObject private var settings = SettingsStore.shared
@@ -12,6 +13,7 @@ struct SettingsView: View {
     @State private var availableModels: [String] = []
     @State private var loadingModels = false
     @State private var ollamaOnline = false
+    @State private var storageSize: String?
 
     enum Tab: String, CaseIterable, Identifiable {
         case general = "slider.horizontal.3"
@@ -94,6 +96,8 @@ struct SettingsView: View {
         .preferredColorScheme(.dark)
         .task {
             await loadOllamaModels()
+            let root = FileSystemManager.shared.rootURL
+            storageSize = await Task.detached { Self.folderSizeString(root) }.value
         }
     }
 
@@ -178,7 +182,65 @@ struct SettingsView: View {
             section("settings.excluded_apps") {
                 excludedAppsEditor
             }
+
+            section("settings.storage") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(storagePathDisplay)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(Theme.Colors.textSecondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(Theme.Colors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                    HStack(spacing: 8) {
+                        Button(action: revealStorage) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder")
+                                Text(LocalizedStringKey("settings.storage.reveal"))
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Theme.Colors.accent)
+
+                        Spacer()
+
+                        if let storageSize {
+                            Text(storageSize)
+                                .font(Theme.Fonts.technical(size: 10))
+                                .foregroundColor(Theme.Colors.textTertiary)
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private var storagePathDisplay: String {
+        FileSystemManager.shared.rootURL.path
+            .replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    private func revealStorage() {
+        NSWorkspace.shared.activateFileViewerSelecting([FileSystemManager.shared.rootURL])
+    }
+
+    /// Total size of a folder, formatted (e.g. "12.3 MB"). Runs off the main
+    /// thread because it walks the whole tree.
+    nonisolated private static func folderSizeString(_ url: URL) -> String? {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: url,
+                                             includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else {
+            return nil
+        }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            if values?.isRegularFile == true { total += Int64(values?.fileSize ?? 0) }
+        }
+        return ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
     }
 
     @ViewBuilder

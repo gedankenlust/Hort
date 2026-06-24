@@ -45,6 +45,8 @@
 "settings.excluded_apps" = "Excluded Apps (Bundle IDs)";
 "settings.excluded_apps.empty" = "No apps excluded";
 "settings.excluded_apps.placeholder" = "com.example.app";
+"settings.storage" = "Data storage";
+"settings.storage.reveal" = "Reveal in Finder";
 "settings.danger_zone" = "Danger Zone";
 "settings.clear_all" = "Clear all memories";
 "settings.clear_all_confirm" = "Are you sure? This cannot be undone.";
