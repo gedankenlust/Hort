@@ -93,34 +93,22 @@ struct InspectorPanel: View {
 
                 if let content = memory.content, !content.isEmpty, memory.type != .image, memory.type != .screenshot {
                     section("inspector.content") {
-                        ScrollView {
-                            Text(content)
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.Colors.textPrimary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 150)
-                        .padding(10)
-                        .background(Theme.Colors.background)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        SelectableText(text: content)
+                            .frame(height: 150)
+                            .padding(10)
+                            .background(Theme.Colors.background)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
 
                 if (memory.type == .image || memory.type == .screenshot),
                    let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
                     section("inspector.ocr_text") {
-                        ScrollView {
-                            Text(ocrText)
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.Colors.textPrimary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 150)
-                        .padding(10)
-                        .background(Theme.Colors.background)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        SelectableText(text: ocrText)
+                            .frame(height: 150)
+                            .padding(10)
+                            .background(Theme.Colors.background)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
 
