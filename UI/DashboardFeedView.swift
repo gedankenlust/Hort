@@ -183,7 +183,6 @@ struct DashboardFeedView: View {
     private var selectAllShortcut: some View {
         Button(action: selectAllVisible) { }
             .keyboardShortcut("a", modifiers: .command)
-            .disabled(app.inspectorTextFocused)
             .opacity(0)
             .accessibilityHidden(true)
             .allowsHitTesting(false)

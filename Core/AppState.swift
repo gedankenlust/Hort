@@ -12,9 +12,6 @@ final class AppState: ObservableObject {
     @Published var selectedMemories: Set<UUID> = []
     @Published var showingSettings = false
     @Published var showingAsk = false
-    /// True while a selectable text field in the inspector has keyboard focus,
-    /// so the feed's ⌘A (select all cards) yields to text select-all.
-    @Published var inspectorTextFocused = false
 
     @Published private(set) var focusSearchToken = 0
     @Published private(set) var exportToken = 0
