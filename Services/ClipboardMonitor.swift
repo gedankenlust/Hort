@@ -79,6 +79,13 @@ class ClipboardMonitor: ObservableObject {
         // Source app — read once, used for the exclusion gate and metadata.
         let sourceApp = NSWorkspace.shared.frontmostApplication
 
+        // Never re-capture copies made from within Hort itself (e.g. selecting
+        // text in the inspector and pressing ⌘C).
+        if let bundleID = sourceApp?.bundleIdentifier,
+           bundleID == Bundle.main.bundleIdentifier {
+            return
+        }
+
         // Privacy gate 2: skip apps the user excluded (e.g. password managers).
         if let bundleID = sourceApp?.bundleIdentifier,
            settings.excludedBundleIDs.contains(bundleID) {
