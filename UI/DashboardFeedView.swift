@@ -199,6 +199,7 @@ struct DashboardFeedView: View {
     private var selectAllShortcut: some View {
         Button(action: selectAllVisible) { }
             .keyboardShortcut("a", modifiers: .command)
+            .disabled(app.inspectorTextFocused)
             .opacity(0)
             .accessibilityHidden(true)
             .allowsHitTesting(false)
@@ -207,6 +208,11 @@ struct DashboardFeedView: View {
     /// Click selection: plain = single, ⌘ = toggle, ⇧ = range from the anchor
     /// (last plain/⌘ click) through this card in the current feed order.
     private func handleSelection(of memory: MemoryObject) {
+        // Clicking a card takes focus away from any inspector text field, so the
+        // feed re-claims ⌘A (select all cards) instead of leaving it stuck.
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        app.inspectorTextFocused = false
+
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift), let anchor = selectionAnchor,
            let a = memories.firstIndex(where: { $0.id == anchor }),
