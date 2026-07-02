@@ -12,6 +12,7 @@ struct MemoryCardView: View {
     var onDelete: (() -> Void)? = nil
 
     @State private var isHovering = false
+    @State private var justCopied = false
 
     var body: some View {
         Group {
@@ -84,7 +85,15 @@ struct MemoryCardView: View {
     private var quickActions: some View {
         if isHovering {
             HStack(spacing: 4) {
-                quickButton("doc.on.doc", help: "inspector.copy") { onCopy?() }
+                quickButton(justCopied ? "checkmark" : "doc.on.doc",
+                            tint: justCopied ? Theme.Colors.accent : .white,
+                            help: "inspector.copy") {
+                    onCopy?()
+                    withAnimation(.easeOut(duration: 0.12)) { justCopied = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        withAnimation(.easeOut(duration: 0.2)) { justCopied = false }
+                    }
+                }
                 quickButton(memory.isFavorite ? "star.fill" : "star", help: "inspector.favorite") { onFavorite?() }
                 quickButton("archivebox", help: "inspector.archive") { onArchive?() }
                 quickButton("trash", tint: Theme.Colors.danger, help: "inspector.delete") { onDelete?() }
