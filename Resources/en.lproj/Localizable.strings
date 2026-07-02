@@ -64,6 +64,7 @@
 "inspector.archive" = "Archive";
 "inspector.unarchive" = "Unarchive";
 "inspector.delete" = "Delete";
+"inspector.favorite" = "Favorite";
 "inspector.analyze" = "Analyze with AI";
 "inspector.reanalyze" = "Re-analyze with AI";
 "inspector.analyzing" = "Model analyzing content...";

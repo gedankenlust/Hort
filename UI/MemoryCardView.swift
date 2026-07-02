@@ -6,6 +6,10 @@ import SwiftUI
 struct MemoryCardView: View {
     let memory: MemoryObject
     var isSelected: Bool = false
+    var onCopy: (() -> Void)? = nil
+    var onFavorite: (() -> Void)? = nil
+    var onArchive: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
 
     @State private var isHovering = false
 
@@ -65,12 +69,45 @@ struct MemoryCardView: View {
             RoundedRectangle(cornerRadius: Theme.Layout.cardRadius, style: .continuous)
                 .strokeBorder(borderColor, lineWidth: isSelected ? 1.5 : 1)
         )
+        .overlay(alignment: .topTrailing) { quickActions }
         .shadow(color: .black.opacity(isSelected ? 0.45 : (isHovering ? 0.35 : 0.2)),
                 radius: isSelected ? 14 : (isHovering ? 10 : 5), y: 4)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .animation(.easeOut(duration: 0.14), value: isSelected)
         .animation(.easeOut(duration: 0.14), value: isHovering)
+    }
+
+    // MARK: - Quick actions (hover)
+
+    @ViewBuilder
+    private var quickActions: some View {
+        if isHovering {
+            HStack(spacing: 4) {
+                quickButton("doc.on.doc", help: "inspector.copy") { onCopy?() }
+                quickButton(memory.isFavorite ? "star.fill" : "star", help: "inspector.favorite") { onFavorite?() }
+                quickButton("archivebox", help: "inspector.archive") { onArchive?() }
+                quickButton("trash", tint: Theme.Colors.danger, help: "inspector.delete") { onDelete?() }
+            }
+            .padding(5)
+            .background(Color.black.opacity(0.4), in: Capsule())
+            .padding(8)
+            .transition(.opacity)
+        }
+    }
+
+    private func quickButton(_ icon: String, tint: Color = .white,
+                             help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: 22, height: 22)
+                .background(Color.black.opacity(0.55))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     // MARK: - Header

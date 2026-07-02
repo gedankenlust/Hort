@@ -153,7 +153,17 @@ struct DashboardFeedView: View {
 
     private func card(for memory: MemoryObject) -> some View {
         MemoryCardView(memory: memory,
-                       isSelected: selectedMemories.contains(memory.id))
+                       isSelected: selectedMemories.contains(memory.id),
+                       onCopy: { copyToClipboard(memory) },
+                       onFavorite: { engine.update(id: memory.id) { $0.isFavorite.toggle() } },
+                       onArchive: {
+                           engine.update(id: memory.id) { $0.isArchived.toggle() }
+                           selectedMemories.remove(memory.id)
+                       },
+                       onDelete: {
+                           engine.delete(memory)
+                           selectedMemories.remove(memory.id)
+                       })
             .onTapGesture { handleSelection(of: memory) }
             .draggable(dragPayload(for: memory)) {
                 dragPreview(for: memory)
@@ -169,6 +179,12 @@ struct DashboardFeedView: View {
             return selectedMemories.map(\.uuidString).joined(separator: "\n")
         }
         return memory.id.uuidString
+    }
+
+    /// Copies a card's content to the clipboard without re-capturing it.
+    private func copyToClipboard(_ memory: MemoryObject) {
+        guard let content = memory.content, !content.isEmpty else { return }
+        ClipboardMonitor.shared.writeWithoutCapture(content)
     }
 
     /// Selects every currently shown card.
