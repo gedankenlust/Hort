@@ -15,105 +15,113 @@ struct MemoryCardView: View {
     @State private var justCopied = false
 
     var body: some View {
-        Group {
-            if let path = imagePath, let image = NSImage(contentsOfFile: path) {
-                // Color.clear defines the (flexible-width, fixed-height) cell;
-                // the image fills it as an overlay and is clipped to it, so the
-                // header/footer overlays always match the card width — even as
-                // the column resizes.
-                Color.clear
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    )
-                    .contentShape(Rectangle())
-                    .clipped()
-                    .overlay(alignment: .top) {
-                        headerView(onImage: true)
-                            .background(LinearGradient(
-                                colors: [Color.black.opacity(0.9), Color.black.opacity(0.55), Color.clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ))
-                    }
-                    .overlay(alignment: .bottom) {
-                        footerView(onImage: true)
-                            .background(LinearGradient(
-                                colors: [Color.clear, Color.black.opacity(0.55), Color.black.opacity(0.9)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ))
-                    }
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    headerView(onImage: false)
+        HortCard(isSelected: isSelected, isHovering: isHovering) {
+            Group {
+                if let path = imagePath, let image = NSImage(contentsOfFile: path) {
+                    // Color.clear defines the (flexible-width, fixed-height) cell;
+                    // the image fills it as an overlay and is clipped to it, so the
+                    // header/footer overlays always match the card width — even as
+                    // the column resizes.
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(
+                            Image(nsImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        )
+                        .contentShape(Rectangle())
+                        .clipped()
+                        .overlay(alignment: .top) {
+                            headerView(onImage: true)
+                                .background(LinearGradient(
+                                    colors: [Color.black.opacity(0.95),
+                                             Color.black.opacity(0.75),
+                                             Color.clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ))
+                        }
+                        .overlay(alignment: .bottom) {
+                            footerView(onImage: true)
+                                .background(LinearGradient(
+                                    colors: [Color.clear,
+                                             Color.black.opacity(0.70),
+                                             Color.black.opacity(0.95)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ))
+                        }
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        headerView(onImage: false)
 
-                    Text(displayText)
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.Colors.textPrimary)
-                        .lineSpacing(2)
-                        .lineLimit(6)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, 12)
+                        Text(displayText)
+                            .font(HortTypography.primary())
+                            .foregroundColor(HortColors.textPrimary)
+                            .lineSpacing(2)
+                            .lineLimit(6)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(.horizontal, HortSpacing.md)
 
-                    footerView(onImage: false)
+                        footerView(onImage: false)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: Theme.Layout.cardHeight, maxHeight: Theme.Layout.cardHeight)
+            .overlay(
+                HortColors.accentSoft
+                    .opacity(isSelected ? 0.35 : 0)
+                    .animation(.easeOut(duration: HortAnimation.fast), value: isSelected)
+                    .allowsHitTesting(false)
+            )
+            .overlay(alignment: .topTrailing) { quickActions }
         }
-        .frame(maxWidth: .infinity, minHeight: Theme.Layout.cardHeight, maxHeight: Theme.Layout.cardHeight)
-        .background(isHovering ? Theme.Colors.elevatedHi : Theme.Colors.elevated)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Layout.cardRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Layout.cardRadius, style: .continuous)
-                .strokeBorder(borderColor, lineWidth: isSelected ? 1.5 : 1)
-        )
-        .overlay(alignment: .topTrailing) { quickActions }
-        .shadow(color: .black.opacity(isSelected ? 0.45 : (isHovering ? 0.35 : 0.2)),
-                radius: isSelected ? 14 : (isHovering ? 10 : 5), y: 4)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: isSelected)
-        .animation(.easeOut(duration: 0.14), value: isHovering)
+        .animation(.easeOut(duration: HortAnimation.fast), value: isSelected)
+        .animation(.easeOut(duration: HortAnimation.fast), value: isHovering)
     }
 
-    // MARK: - Quick actions (hover)
+    // MARK: - Quick actions
 
     @ViewBuilder
     private var quickActions: some View {
-        if isHovering {
-            HStack(spacing: 4) {
-                quickButton(justCopied ? "checkmark" : "doc.on.doc",
-                            tint: justCopied ? Theme.Colors.accent : .white,
-                            help: "inspector.copy") {
+        HStack(spacing: HortSpacing.xs) {
+            quickActionButton(memory.isFavorite ? "star.fill" : "star",
+                              tint: memory.isFavorite ? HortColors.accent : .white,
+                              help: "inspector.favorite") { onFavorite?() }
+
+            if isHovering {
+                quickActionButton(justCopied ? "checkmark" : "doc.on.doc",
+                                  tint: justCopied ? HortColors.accent : .white,
+                                  help: "inspector.copy") {
                     onCopy?()
                     withAnimation(.easeOut(duration: 0.12)) { justCopied = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                         withAnimation(.easeOut(duration: 0.2)) { justCopied = false }
                     }
                 }
-                quickButton(memory.isFavorite ? "star.fill" : "star", help: "inspector.favorite") { onFavorite?() }
-                quickButton("archivebox", help: "inspector.archive") { onArchive?() }
-                quickButton("trash", tint: Theme.Colors.danger, help: "inspector.delete") { onDelete?() }
+                quickActionButton("archivebox", help: "inspector.archive") { onArchive?() }
+                quickActionButton("trash", tint: HortColors.danger, help: "inspector.delete") { onDelete?() }
             }
-            .padding(5)
-            .background(Color.black.opacity(0.4), in: Capsule())
-            .padding(8)
-            .transition(.opacity)
         }
+        .padding(HortSpacing.xs)
+        .background(Color.black.opacity(0.4), in: Capsule())
+        .padding(HortSpacing.md)
+        .transition(.opacity)
     }
 
-    private func quickButton(_ icon: String, tint: Color = .white,
-                             help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+    private func quickActionButton(_ icon: String, tint: Color = .white,
+                                   help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(tint)
-                .frame(width: 22, height: 22)
+                .frame(width: HortSizing.quickAction, height: HortSizing.quickAction)
                 .background(Color.black.opacity(0.55))
                 .clipShape(Circle())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .help(help)
@@ -125,18 +133,18 @@ struct MemoryCardView: View {
     /// with a dark icon chip to stay legible over bright image areas (the grey
     /// palette vanishes over white logos / bright studios).
     private func headerView(onImage: Bool) -> some View {
-        let labelColor = onImage ? Color.white : Theme.Colors.textSecondary
-        let timeColor = onImage ? Color.white.opacity(0.85) : Theme.Colors.textTertiary
-        return HStack(spacing: 8) {
+        let labelColor = onImage ? Color.white : HortColors.textSecondary
+        let timeColor = onImage ? Color.white.opacity(0.85) : HortColors.textTertiary
+        return HStack(spacing: HortSpacing.sm) {
             Image(systemName: iconName)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(onImage ? .white : Theme.Colors.accent)
+                .foregroundColor(onImage ? .white : HortColors.accent)
                 .frame(width: 22, height: 22)
-                .background(onImage ? Color.black.opacity(0.35) : Theme.Colors.accentSoft)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .background(onImage ? Color.black.opacity(0.35) : HortColors.accentSoft)
+                .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
 
             Text(memory.type.rawValue.uppercased())
-                .font(Theme.Fonts.label(10, weight: .semibold))
+                .font(HortTypography.label(size: 10))
                 .tracking(0.6)
                 .lineLimit(1)
                 .foregroundColor(labelColor)
@@ -144,43 +152,20 @@ struct MemoryCardView: View {
             if memory.isFavorite {
                 Image(systemName: "star.fill")
                     .font(.system(size: 9))
-                    .foregroundColor(Theme.Colors.accent)
+                    .foregroundColor(HortColors.accent)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: HortSpacing.xs)
 
             Text(memory.createdAt, style: .time)
-                .font(.system(size: 10, weight: .medium))
+                .font(HortTypography.technical(size: 10))
                 .monospacedDigit()
                 .lineLimit(1)
                 .foregroundColor(timeColor)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-    }
-
-    // MARK: - Content
-
-    @ViewBuilder
-    private var content: some View {
-        if let path = imagePath, let image = NSImage(contentsOfFile: path) {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .clipped()
-        } else {
-            Text(displayText)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.Colors.textPrimary)
-                .lineSpacing(2)
-                .lineLimit(6)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 12)
-        }
+        .padding(.horizontal, HortSpacing.md)
+        .padding(.top, HortSpacing.md)
+        .padding(.bottom, HortSpacing.sm)
     }
 
     // MARK: - Footer
@@ -190,38 +175,32 @@ struct MemoryCardView: View {
     /// horizontal ScrollView here clipped chips inconsistently and fought the
     /// card's drag gesture.)
     private func footerView(onImage: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: HortSpacing.sm) {
             if !memory.tags.isEmpty {
-                ForEach(memory.tags.prefix(2), id: \.self) { TagChip(text: $0) }
+                ForEach(memory.tags.prefix(2), id: \.self) { HortTagChip(text: $0) }
                 if memory.tags.count > 2 {
                     Text("+\(memory.tags.count - 2)")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(onImage ? Color.white.opacity(0.9) : Theme.Colors.textTertiary)
+                        .font(HortTypography.label(size: 9, weight: .medium))
+                        .foregroundColor(onImage ? Color.white.opacity(0.9) : HortColors.textTertiary)
                 }
             } else if let app = memory.sourceApp {
                 Image(systemName: "app.dashed")
                     .font(.system(size: 9))
-                    .foregroundColor(onImage ? Color.white.opacity(0.9) : Theme.Colors.textTertiary)
+                    .foregroundColor(onImage ? Color.white.opacity(0.9) : HortColors.textTertiary)
                 Text(app)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(onImage ? Color.white.opacity(0.9) : Theme.Colors.textTertiary)
+                    .font(HortTypography.label(size: 10, weight: .medium))
+                    .foregroundColor(onImage ? Color.white.opacity(0.9) : HortColors.textTertiary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
         }
         .frame(height: 34)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HortSpacing.md)
         .padding(.bottom, 10)
         .clipped()
     }
 
     // MARK: - Helpers
-
-    private var borderColor: Color {
-        if isSelected { return Theme.Colors.accent }
-        if isHovering { return Theme.Colors.borderStrong }
-        return Theme.Colors.border
-    }
 
     private var displayText: String {
         if let content = memory.content, !content.isEmpty { return content }

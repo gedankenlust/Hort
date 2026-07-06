@@ -32,7 +32,7 @@ struct SidebarView: View {
             wordmark
 
             // Primary navigation
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: HortSpacing.xs) {
                 SidebarItem(icon: "tray.and.arrow.down", title: "sidebar.inbox",
                             count: inboxCount,
                             isActive: selection == .inbox,
@@ -54,15 +54,19 @@ struct SidebarView: View {
                             action: { selection = .archive },
                             dropHandler: { apply($0) { $0.isArchived = true } })
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, HortSpacing.sm)
 
             boardsSection
 
             if !allTags.isEmpty {
-                sectionHeader("sidebar.tags", add: nil)
+                HortSectionHeader(title: "sidebar.tags")
+                    .padding(.horizontal, HortSpacing.lg)
+                    .padding(.top, HortSpacing.xl)
+                    .padding(.bottom, HortSpacing.sm)
+
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(allTags, id: \.self) { tag in
+                    LazyVStack(alignment: .leading, spacing: HortSpacing.xs) {
+                        ForEach(sortedTags, id: \.self) { tag in
                             SidebarItem(icon: "number", title: tag,
                                         isActive: selection == .tag(tag),
                                         action: { selection = .tag(tag) },
@@ -71,23 +75,24 @@ struct SidebarView: View {
                                         })
                         }
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, HortSpacing.sm)
                 }
             }
 
             Spacer()
 
-            VStack(spacing: 8) {
+            VStack(spacing: HortSpacing.sm) {
                 if settings.aiEnabled {
                     OllamaIndicator(action: onOpenSettings)
                 }
                 StatusIndicator()
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.horizontal, HortSpacing.md)
+            .padding(.bottom, HortSpacing.md)
         }
-        .background(Theme.Colors.surface)
-        .frame(minWidth: Theme.Layout.sidebarWidth, maxHeight: .infinity, alignment: .top)
+        .background(HortColors.surface)
+        .frame(minWidth: HortSizing.sidebarWidth, idealWidth: HortSizing.sidebarWidth, maxHeight: .infinity, alignment: .top)
+        .navigationSplitViewColumnWidth(HortSizing.sidebarWidth)
         .onAppear { refreshCounts() }
         .onChange(of: engine.dataVersion) { _, _ in refreshCounts() }
         .alert("sidebar.new_folder", isPresented: Binding(
@@ -114,7 +119,7 @@ struct SidebarView: View {
     // MARK: - Wordmark
 
     private var wordmark: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: HortSpacing.sm) {
             if let logoURL = Bundle.main.url(forResource: "Logo Hort Icon", withExtension: "png", subdirectory: "Assets"),
                let image = NSImage(contentsOfFile: logoURL.path) {
                 Image(nsImage: image)
@@ -125,56 +130,45 @@ struct SidebarView: View {
                     .frame(width: 14, height: 14)
             } else {
                 // Fallback to original mark if asset missing
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Theme.Colors.accent)
+                RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous)
+                    .fill(HortColors.accent)
                     .frame(width: 18, height: 18)
                     .overlay(
                         Image(systemName: "square.stack.3d.up.fill")
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(Theme.Colors.background)
+                            .foregroundColor(HortColors.background)
                     )
             }
-            
+
             Text("Hort")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Theme.Colors.textPrimary)
+                .font(HortTypography.label(size: HortTypography.Size.headline))
+                .foregroundColor(HortColors.textPrimary)
             Spacer()
-            Button(action: onOpenSettings) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .foregroundColor(Theme.Colors.textSecondary)
-            }
-            .buttonStyle(.plain)
-            .help("Settings")
+            HortIconButton(icon: "gearshape", help: "settings.title", action: onOpenSettings)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 16)
-        .padding(.bottom, 18)
+        .padding(HortSpacing.lg)
     }
 
     // MARK: - Boards (user-created)
 
     private var boardsSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            sectionHeader("sidebar.boards", add: { startAddingBoard() })
+        VStack(alignment: .leading, spacing: HortSpacing.xs) {
+            HortSectionHeader(title: "sidebar.boards",
+                              action: startAddingBoard,
+                              actionHelp: "sidebar.new_board")
+                .padding(.horizontal, HortSpacing.lg)
+                .padding(.top, HortSpacing.xl)
+                .padding(.bottom, HortSpacing.sm)
 
             if addingBoard {
-                HStack(spacing: 7) {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.Colors.textTertiary)
-                    TextField("Board name…", text: $newBoardName)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.Colors.textPrimary)
-                        .focused($boardFieldFocused)
-                        .onSubmit { commitNewBoard() }
-                }
-                .padding(.vertical, 7)
-                .padding(.horizontal, 10)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Theme.Colors.elevated))
-                .padding(.horizontal, 10)
+                HortTextField(
+                    placeholder: "sidebar.board_name_placeholder",
+                    text: $newBoardName,
+                    onSubmit: commitNewBoard,
+                    leadingIcon: "folder.badge.plus",
+                    focus: Binding(get: { boardFieldFocused }, set: { boardFieldFocused = $0 })
+                )
+                .padding(.horizontal, HortSpacing.sm)
             }
 
             ForEach(boardList, id: \.self) { board in
@@ -182,7 +176,7 @@ struct SidebarView: View {
                     boardRenameField(for: board.name)
                 } else {
                     let boardColor = board.colorHex.flatMap { Color(hexString: $0) }
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: HortSpacing.xs) {
                         HStack(spacing: 0) {
                             if !board.folders.isEmpty {
                                 Button {
@@ -194,12 +188,12 @@ struct SidebarView: View {
                                 } label: {
                                     Image(systemName: collapsedBoards.contains(board.name) ? "chevron.right" : "chevron.down")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(Theme.Colors.textTertiary)
+                                        .foregroundColor(HortColors.textTertiary)
                                         .frame(width: 14, height: 14)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .padding(.leading, 4)
+                                .padding(.leading, HortSpacing.xs)
                             } else {
                                 Spacer().frame(width: 18)
                             }
@@ -211,7 +205,8 @@ struct SidebarView: View {
                                         dropHandler: { id in
                                             apply(id) { $0.board = board.name; $0.folder = nil; $0.isArchived = false }
                                         },
-                                        iconColor: boardColor)
+                                        iconColor: boardColor,
+                                        accentColor: boardColor)
                                 .contextMenu {
                                     Menu("common.change_color") {
                                         Button("Cyan") { settings.changeBoardColor(board.name, to: "32D2E0") }
@@ -247,6 +242,7 @@ struct SidebarView: View {
                                             dropHandler: { id in
                                                 apply(id) { $0.board = board.name; $0.folder = folder; $0.isArchived = false }
                                             },
+                                            accentColor: boardColor,
                                             indentation: 24)
                                     .contextMenu {
                                         Button(role: .destructive) {
@@ -260,51 +256,26 @@ struct SidebarView: View {
                     }
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, HortSpacing.sm)
 
             if boardList.isEmpty && !addingBoard {
-                Button(action: { startAddingBoard() }) {
-                    HStack(spacing: 8) {
+                Button(action: startAddingBoard) {
+                    HStack(spacing: HortSpacing.sm) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(HortTypography.label(size: HortTypography.Size.caption))
                         Text("sidebar.new_board")
-                            .font(.system(size: 13))
+                            .font(HortTypography.primary())
                         Spacer()
                     }
-                    .foregroundColor(Theme.Colors.textTertiary)
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 10)
+                    .foregroundColor(HortColors.textTertiary)
+                    .padding(.vertical, HortSpacing.sm)
+                    .padding(.horizontal, HortSpacing.md)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, HortSpacing.sm)
             }
         }
-    }
-
-    // MARK: - Section header (with optional add button)
-
-    private func sectionHeader(_ text: String, add: (() -> Void)?) -> some View {
-        HStack {
-            Text(LocalizedStringKey(text))
-                .textCase(.uppercase)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.8)
-                .foregroundColor(Theme.Colors.textTertiary)
-            Spacer()
-            if let add {
-                Button(action: add) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Theme.Colors.textTertiary)
-                }
-                .buttonStyle(.plain)
-                .help("New board")
-            }
-        }
-        .padding(.horizontal, 22)
-        .padding(.top, 20)
-        .padding(.bottom, 8)
     }
 
     // MARK: - Data
@@ -319,6 +290,10 @@ struct SidebarView: View {
             list.append(Board(name: boardName))
         }
         return list
+    }
+
+    private var sortedTags: [String] {
+        allTags.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private func refreshCounts() {
@@ -351,23 +326,14 @@ struct SidebarView: View {
     }
 
     private func boardRenameField(for board: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 13))
-                .frame(width: 18)
-                .foregroundColor(Theme.Colors.textTertiary)
-            TextField("Board name…", text: $renameText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.Colors.textPrimary)
-                .focused($renameFocused)
-                .onSubmit { commitRename(from: board) }
-        }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 10)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Theme.Colors.elevated))
-        .padding(.horizontal, 10)
+        HortTextField(
+            placeholder: "sidebar.board_name_placeholder",
+            text: $renameText,
+            onSubmit: { commitRename(from: board) },
+            leadingIcon: "square.grid.2x2",
+            focus: Binding(get: { renameFocused }, set: { renameFocused = $0 })
+        )
+        .padding(.horizontal, HortSpacing.sm)
     }
 
     private func startRenaming(_ board: String) {
@@ -408,10 +374,16 @@ struct SidebarItem: View {
     /// returns whether it was accepted.
     var dropHandler: ((String) -> Bool)? = nil
     var iconColor: Color? = nil
+    /// Tint applied to the active indicator and active foreground.
+    var accentColor: Color? = nil
     var indentation: CGFloat = 0
 
     @State private var isHovering = false
     @State private var isDropTargeted = false
+
+    private var activeColor: Color {
+        accentColor ?? HortColors.accent
+    }
 
     var body: some View {
         if let dropHandler {
@@ -426,40 +398,40 @@ struct SidebarItem: View {
 
     private var button: some View {
         Button(action: action) {
-            HStack(spacing: 11) {
+            HStack(spacing: HortSpacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 13))
+                    .font(HortTypography.primary())
                     .frame(width: 18)
-                    .foregroundColor(iconColor ?? (isActive ? Theme.Colors.accent : Theme.Colors.textSecondary))
+                    .foregroundColor(iconColor ?? (isActive ? activeColor : HortColors.textSecondary))
                 Text(LocalizedStringKey(title))
-                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                    .font(HortTypography.primary(weight: isActive ? .semibold : .regular))
                     .lineLimit(1)
-                Spacer(minLength: 4)
+                Spacer(minLength: HortSpacing.xs)
                 if let count, count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(HortTypography.technical(size: HortTypography.Size.caption))
                         .monospacedDigit()
-                        .foregroundColor(isActive ? Theme.Colors.accent : Theme.Colors.textTertiary)
+                        .foregroundColor(isActive ? activeColor : HortColors.textTertiary)
                 }
             }
             .foregroundColor(foreground)
-            .padding(.vertical, 7)
-            .padding(.horizontal, 10)
-            .padding(.leading, 10 + indentation)
+            .padding(.vertical, HortSpacing.sm)
+            .padding(.horizontal, HortSpacing.md)
+            .padding(.leading, HortSpacing.md + indentation)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(background)
+                RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous).fill(background)
             )
             .overlay(alignment: .leading) {
                 if isActive {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Theme.Colors.accent)
+                        .fill(activeColor)
                         .frame(width: 3, height: 16)
                         .padding(.leading, 1 + indentation)
                 }
             }
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Theme.Colors.accent, lineWidth: isDropTargeted ? 1.5 : 0)
+                RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous)
+                    .strokeBorder(activeColor, lineWidth: isDropTargeted ? 1.5 : 0)
             )
             .contentShape(Rectangle())
         }
@@ -468,15 +440,15 @@ struct SidebarItem: View {
     }
 
     private var foreground: Color {
-        if isActive { return Theme.Colors.accent }
-        if isHovering { return Theme.Colors.textPrimary }
-        return Theme.Colors.textSecondary
+        if isActive { return activeColor }
+        if isHovering { return HortColors.textPrimary }
+        return HortColors.textSecondary
     }
 
     private var background: Color {
-        if isDropTargeted { return Theme.Colors.accentSoft }
-        if isActive { return Theme.Colors.accentSoft }
-        if isHovering { return Color.white.opacity(0.04) }
+        if isDropTargeted { return activeColor.opacity(0.14) }
+        if isActive { return activeColor.opacity(0.14) }
+        if isHovering { return HortColors.elevatedHover.opacity(0.5) }
         return .clear
     }
 }
@@ -485,20 +457,24 @@ struct StatusIndicator: View {
     @ObservedObject private var capture = CaptureEngine.shared
 
     private var tint: Color {
-        capture.isCapturing ? Theme.Colors.accent : Theme.Colors.warning
+        capture.isCapturing ? HortColors.accent : HortColors.warning
+    }
+
+    private var statusKey: String {
+        capture.isCapturing ? "sidebar.system_live" : "sidebar.capture_paused"
     }
 
     var body: some View {
         Button {
             capture.toggle()
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: HortSpacing.sm) {
                 Circle()
                     .fill(tint)
                     .frame(width: 7, height: 7)
                     .shadow(color: tint.opacity(0.8), radius: 4)
-                Text(LocalizedStringKey(capture.isCapturing ? "sidebar.system_live" : "sidebar.capture_paused"))
-                    .font(.system(size: 11, weight: .medium))
+                Text(LocalizedStringKey(statusKey))
+                    .font(HortTypography.primary(size: HortTypography.Size.caption, weight: .medium))
                     .foregroundColor(tint)
                 Spacer(minLength: 0)
                 Image(systemName: capture.isCapturing ? "pause.fill" : "play.fill")
@@ -506,18 +482,19 @@ struct StatusIndicator: View {
                     .foregroundColor(tint)
             }
             .padding(.vertical, 9)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, HortSpacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous).fill(tint.opacity(0.1))
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous).fill(tint.opacity(0.1))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
                     .strokeBorder(tint.opacity(0.25), lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(capture.isCapturing ? "Pause capture" : "Resume capture")
+        .accessibilityLabel(LocalizedStringKey(statusKey))
     }
 }
 
@@ -532,11 +509,11 @@ struct OllamaIndicator: View {
     /// Dot/accent colour: amber while analyzing, red when offline, accent when
     /// reachable, muted when not yet checked.
     private var tint: Color {
-        if runtime.isAnalyzing { return Theme.Colors.warning }
+        if runtime.isAnalyzing { return HortColors.warning }
         switch runtime.reachable {
-        case .some(true): return Theme.Colors.accent
-        case .some(false): return Theme.Colors.danger
-        case .none: return Theme.Colors.textTertiary
+        case .some(true): return HortColors.accent
+        case .some(false): return HortColors.danger
+        case .none: return HortColors.textTertiary
         }
     }
 
@@ -551,7 +528,7 @@ struct OllamaIndicator: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: HortSpacing.sm) {
                 if runtime.isAnalyzing {
                     ProgressView()
                         .controlSize(.small)
@@ -563,7 +540,7 @@ struct OllamaIndicator: View {
                         .shadow(color: tint.opacity(0.8), radius: 4)
                 }
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(HortTypography.primary(size: HortTypography.Size.caption, weight: .medium))
                     .foregroundColor(tint)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -572,12 +549,12 @@ struct OllamaIndicator: View {
                     .foregroundColor(tint)
             }
             .padding(.vertical, 9)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, HortSpacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous).fill(tint.opacity(0.1))
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous).fill(tint.opacity(0.1))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
                     .strokeBorder(tint.opacity(0.25), lineWidth: 1)
             )
             .contentShape(Rectangle())
@@ -585,6 +562,7 @@ struct OllamaIndicator: View {
         .buttonStyle(.plain)
         .help(runtime.lastError.map { "AI error: \($0) - Click to open settings" }
               ?? "Local AI model - Click to open settings")
+        .accessibilityLabel(label)
         .onAppear { runtime.refreshReachability() }
         .onReceive(pollTimer) { _ in
             if !runtime.isAnalyzing { runtime.refreshReachability() }

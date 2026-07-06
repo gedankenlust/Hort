@@ -16,12 +16,12 @@ struct SettingsView: View {
     @State private var storageSize: String?
 
     enum Tab: String, CaseIterable, Identifiable {
-        case general = "slider.horizontal.3"
-        case privacy = "hand.raised.fill"
-        case ai = "brain"
-        
+        case general
+        case privacy
+        case ai
+
         var id: String { self.rawValue }
-        
+
         var title: LocalizedStringKey {
             switch self {
             case .general: return "settings.tab.general"
@@ -30,7 +30,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     @State private var selectedTab: Tab = .general
 
     /// Name fragments of common embedding-model families, so chat models stay
@@ -50,35 +50,27 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with Segmented Tab Picker and Dismiss button
-            HStack {
-                Picker("", selection: $selectedTab) {
-                    ForEach(Tab.allCases) { tab in
-                        Label(tab.title, systemImage: tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 300)
-                
-                Spacer()
-                
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(Theme.Colors.textSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-            
+            toolbarHeader
+
             Divider()
-                .background(Theme.Colors.border)
+                .background(HortColors.border)
+
+            // Segmented tab picker
+            Picker("", selection: $selectedTab) {
+                ForEach(Tab.allCases) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 320)
+            .padding(.vertical, HortSpacing.md)
+
+            Divider()
+                .background(HortColors.border)
 
             // Content Area based on Selected Tab
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: HortSpacing.xl) {
                     switch selectedTab {
                     case .general:
                         generalTab
@@ -88,11 +80,11 @@ struct SettingsView: View {
                         aiTab
                     }
                 }
-                .padding(20)
+                .padding(HortSpacing.xl)
             }
         }
-        .frame(width: 480, height: 480)
-        .background(Theme.Colors.background)
+        .frame(width: 520, height: 520)
+        .background(HortColors.background)
         .preferredColorScheme(.dark)
         .task {
             await loadOllamaModels()
@@ -101,51 +93,65 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Toolbar header
+
+    private var toolbarHeader: some View {
+        HStack {
+            Text("settings.title")
+                .font(HortTypography.label(size: HortTypography.Size.title))
+                .foregroundColor(HortColors.textPrimary)
+
+            Spacer()
+
+            HortButton(title: "common.done", style: .primary) { dismiss() }
+                .frame(width: 80)
+        }
+        .padding(.horizontal, HortSpacing.xl)
+        .padding(.vertical, HortSpacing.md)
+    }
+
+    // MARK: - Tabs
+
     @ViewBuilder
     private var generalTab: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: HortSpacing.xl) {
             // General settings
-            section("settings.general") {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.general")
+
                 Picker(LocalizedStringKey("settings.language"), selection: $settings.language) {
                     Text(LocalizedStringKey("settings.language.system")).tag("system")
                     Text(LocalizedStringKey("settings.language.en")).tag("en")
                     Text(LocalizedStringKey("settings.language.de")).tag("de")
                 }
                 .pickerStyle(.menu)
-                .tint(Theme.Colors.accent)
+                .tint(HortColors.accent)
             }
 
             // Capture settings
-            section("settings.capture") {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.capture")
+
                 Toggle(isOn: Binding(
                     get: { capture.isCapturing },
                     set: { $0 ? capture.resume() : capture.pause() }
                 )) {
                     Text(LocalizedStringKey("settings.capture.enabled"))
-                        .foregroundColor(Theme.Colors.textPrimary)
+                        .foregroundColor(HortColors.textPrimary)
                 }
                 .toggleStyle(.switch)
-                .tint(Theme.Colors.accent)
+                .tint(HortColors.accent)
             }
 
-            Divider()
-                .background(Theme.Colors.border)
-                .padding(.vertical, 4)
-
             // Danger Zone
-            section("settings.danger_zone") {
-                Button(role: .destructive, action: { confirmClear = true }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(LocalizedStringKey("settings.clear_all"))
-                        Spacer()
-                    }
-                    .padding(8)
-                    .background(Color.red.opacity(0.12))
-                    .foregroundColor(.red)
-                    .cornerRadius(Theme.Layout.cornerRadius)
-                }
-                .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.danger_zone")
+
+                HortButton(
+                    title: "settings.clear_all",
+                    icon: "trash",
+                    style: .destructive
+                ) { confirmClear = true }
                 .confirmationDialog(LocalizedStringKey("settings.clear_all_confirm"),
                                     isPresented: $confirmClear, titleVisibility: .visible) {
                     Button(LocalizedStringKey("common.delete"), role: .destructive) { MemoryEngine.shared.deleteAll() }
@@ -157,60 +163,61 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var privacyTab: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            section("settings.privacy") {
-                VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: HortSpacing.xl) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.privacy")
+
+                VStack(alignment: .leading, spacing: HortSpacing.md) {
                     Toggle(isOn: $settings.ignoreConcealed) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: HortSpacing.xs) {
                             Text(LocalizedStringKey("settings.privacy.ignore_passwords"))
-                                .foregroundColor(Theme.Colors.textPrimary)
+                                .foregroundColor(HortColors.textPrimary)
                             Text(LocalizedStringKey("settings.privacy.ignore_passwords_desc"))
-                                .font(Theme.Fonts.technical(size: 9))
-                                .foregroundColor(Theme.Colors.textSecondary)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
                         }
                     }
                     .toggleStyle(.switch)
-                    .tint(Theme.Colors.accent)
-                    
+                    .tint(HortColors.accent)
+
                     Text(LocalizedStringKey("settings.privacy.screenshot_warning"))
-                        .font(Theme.Fonts.technical(size: 9))
-                        .foregroundColor(Theme.Colors.textSecondary)
+                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            section("settings.excluded_apps") {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.excluded_apps")
                 excludedAppsEditor
             }
 
-            section("settings.storage") {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.storage")
+
+                VStack(alignment: .leading, spacing: HortSpacing.sm) {
                     Text(storagePathDisplay)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Theme.Colors.textSecondary)
+                        .font(HortTypography.technical(size: HortTypography.Size.bodySmall))
+                        .foregroundColor(HortColors.textSecondary)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(Theme.Colors.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .padding(HortSpacing.sm)
+                        .background(HortColors.elevated)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
 
-                    HStack(spacing: 8) {
-                        Button(action: revealStorage) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "folder")
-                                Text(LocalizedStringKey("settings.storage.reveal"))
-                            }
-                            .font(.system(size: 11, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundColor(Theme.Colors.accent)
+                    HStack(spacing: HortSpacing.sm) {
+                        HortButton(
+                            title: "settings.storage.reveal",
+                            icon: "folder",
+                            style: .ghost
+                        ) { revealStorage() }
 
                         Spacer()
 
                         if let storageSize {
                             Text(storageSize)
-                                .font(Theme.Fonts.technical(size: 10))
-                                .foregroundColor(Theme.Colors.textTertiary)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textTertiary)
                         }
                     }
                 }
@@ -245,54 +252,51 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var aiTab: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: HortSpacing.xl) {
             // Local AI
-            section("settings.ai.title") {
-                VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.ai.title")
+
+                VStack(alignment: .leading, spacing: HortSpacing.md) {
                     Toggle(isOn: $settings.aiEnabled) {
                         Text(LocalizedStringKey("settings.ai.enabled"))
-                            .foregroundColor(Theme.Colors.textPrimary)
+                            .foregroundColor(HortColors.textPrimary)
                     }
                     .toggleStyle(.switch)
-                    .tint(Theme.Colors.accent)
+                    .tint(HortColors.accent)
 
                     if settings.aiEnabled {
                         Toggle(isOn: $settings.aiAutopilot) {
                             Text(LocalizedStringKey("settings.ai.autopilot"))
-                                .foregroundColor(Theme.Colors.textPrimary)
+                                .foregroundColor(HortColors.textPrimary)
                         }
                         .toggleStyle(.switch)
-                        .tint(Theme.Colors.accent)
-                        
+                        .tint(HortColors.accent)
+
                         if loadingModels {
-                            HStack(spacing: 8) {
+                            HStack(spacing: HortSpacing.sm) {
                                 ProgressView()
                                     .controlSize(.small)
                                 Text(LocalizedStringKey("settings.ai.loading"))
-                                    .font(Theme.Fonts.technical(size: 10))
-                                    .foregroundColor(Theme.Colors.textSecondary)
+                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                    .foregroundColor(HortColors.textSecondary)
                             }
                         } else if ollamaOnline {
-                            Picker(LocalizedStringKey("settings.ai.model"), selection: $settings.aiModel) {
-                                ForEach(availableModels, id: \.self) { model in
-                                    Text(model).tag(model)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(Theme.Colors.accent)
+                            ModelPicker(
+                                label: "settings.ai.model",
+                                selection: $settings.aiModel,
+                                options: availableModels
+                            )
                         } else {
-                            VStack(alignment: .leading, spacing: 4) {
-                                TextField(LocalizedStringKey("settings.ai.model"), text: $settings.aiModel)
-                                    .textFieldStyle(.plain)
-                                    .font(Theme.Fonts.technical(size: 11))
-                                    .foregroundColor(Theme.Colors.textPrimary)
-                                    .padding(6)
-                                    .background(Theme.Colors.surface)
-                                    .cornerRadius(6)
-                                
+                            VStack(alignment: .leading, spacing: HortSpacing.xs) {
+                                HortTextField(
+                                    placeholder: "settings.ai.model",
+                                    text: $settings.aiModel
+                                )
+
                                 Text(LocalizedStringKey("settings.ai.offline"))
-                                    .font(Theme.Fonts.technical(size: 9))
-                                    .foregroundColor(Theme.Colors.warning)
+                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                    .foregroundColor(HortColors.warning)
                                     .lineLimit(2)
                             }
                         }
@@ -301,49 +305,46 @@ struct SettingsView: View {
             }
 
             // Semantic search & Ask
-            section("settings.semantic.title") {
-                VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.semantic.title")
+
+                VStack(alignment: .leading, spacing: HortSpacing.md) {
                     Toggle(isOn: $settings.semanticEnabled) {
                         Text(LocalizedStringKey("settings.semantic.enabled"))
-                            .foregroundColor(Theme.Colors.textPrimary)
+                            .foregroundColor(HortColors.textPrimary)
                     }
                     .toggleStyle(.switch)
-                    .tint(Theme.Colors.accent)
+                    .tint(HortColors.accent)
                     .onChange(of: settings.semanticEnabled) { _, on in
                         if on { EmbeddingIndexer.shared.backfill() }
                     }
 
                     Text(LocalizedStringKey("settings.semantic.desc"))
-                        .font(Theme.Fonts.technical(size: 9))
-                        .foregroundColor(Theme.Colors.textSecondary)
+                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if settings.semanticEnabled {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: HortSpacing.sm) {
                             if ollamaOnline {
-                                Picker(LocalizedStringKey("settings.semantic.model"), selection: $settings.embeddingModel) {
-                                    ForEach(embeddingModelOptions, id: \.self) { model in
-                                        Text(model).tag(model)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(Theme.Colors.accent)
+                                ModelPicker(
+                                    label: "settings.semantic.model",
+                                    selection: $settings.embeddingModel,
+                                    options: embeddingModelOptions
+                                )
                             } else {
-                                TextField(LocalizedStringKey("settings.semantic.model"), text: $settings.embeddingModel)
-                                    .textFieldStyle(.plain)
-                                    .font(Theme.Fonts.technical(size: 11))
-                                    .foregroundColor(Theme.Colors.textPrimary)
-                                    .padding(6)
-                                    .background(Theme.Colors.surface)
-                                    .cornerRadius(6)
+                                HortTextField(
+                                    placeholder: "settings.semantic.model",
+                                    text: $settings.embeddingModel
+                                )
                             }
-                            
+
                             Text(LocalizedStringKey("settings.semantic.model_warning"))
-                                .font(Theme.Fonts.technical(size: 9))
-                                .foregroundColor(Theme.Colors.warning)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.warning)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.top, 4)
+                        .padding(.top, HortSpacing.xs)
                         .onChange(of: settings.embeddingModel) { _, _ in
                             MemoryEngine.shared.clearEmbeddings()
                             EmbeddingIndexer.shared.backfill()
@@ -351,12 +352,12 @@ struct SettingsView: View {
                     }
 
                     if settings.semanticEnabled, indexer.isIndexing || indexer.pending > 0 {
-                        HStack(spacing: 8) {
+                        HStack(spacing: HortSpacing.sm) {
                             ProgressView().controlSize(.small)
                             Text(String(format: L("settings.semantic.indexing"),
                                         "\(indexer.pending + (indexer.isIndexing ? 1 : 0))"))
-                                .font(Theme.Fonts.technical(size: 10))
-                                .foregroundColor(Theme.Colors.textSecondary)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
                         }
                     }
                 }
@@ -381,50 +382,46 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var excludedAppsEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: HortSpacing.md) {
             if settings.excludedBundleIDs.isEmpty {
                 Text(LocalizedStringKey("settings.excluded_apps.empty"))
-                    .font(Theme.Fonts.technical(size: 10))
-                    .foregroundColor(Theme.Colors.textSecondary)
+                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                    .foregroundColor(HortColors.textSecondary)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: HortSpacing.xs) {
                         ForEach(settings.excludedBundleIDs.sorted(), id: \.self) { bundleID in
                             HStack {
                                 Text(bundleID)
-                                    .font(Theme.Fonts.technical(size: 11))
-                                    .foregroundColor(Theme.Colors.textPrimary)
+                                    .font(HortTypography.technical(size: HortTypography.Size.bodySmall))
+                                    .foregroundColor(HortColors.textPrimary)
                                 Spacer()
-                                Button(action: { settings.excludedBundleIDs.remove(bundleID) }) {
-                                    Image(systemName: "minus.circle")
-                                        .foregroundColor(Theme.Colors.textSecondary)
-                                }
-                                .buttonStyle(.plain)
+                                HortIconButton(
+                                    icon: "minus.circle",
+                                    help: "common.delete"
+                                ) { settings.excludedBundleIDs.remove(bundleID) }
                             }
-                            .padding(.vertical, 3)
-                            .padding(.horizontal, 8)
-                            .background(Theme.Colors.surface)
-                            .cornerRadius(6)
+                            .padding(.vertical, HortSpacing.xs)
+                            .padding(.horizontal, HortSpacing.sm)
+                            .background(HortColors.elevated)
+                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
                         }
                     }
                 }
                 .frame(maxHeight: 120)
             }
 
-            HStack {
-                TextField(LocalizedStringKey("settings.excluded_apps.placeholder"), text: $newBundleID)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Fonts.technical(size: 11))
-                    .foregroundColor(Theme.Colors.textPrimary)
-                    .padding(6)
-                    .background(Theme.Colors.surface)
-                    .cornerRadius(6)
-                    .onSubmit(addBundleID)
-                Button(action: addBundleID) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(Theme.Colors.accent)
-                }
-                .buttonStyle(.plain)
+            HStack(spacing: HortSpacing.sm) {
+                HortTextField(
+                    placeholder: "settings.excluded_apps.placeholder",
+                    text: $newBundleID,
+                    onSubmit: addBundleID
+                )
+
+                HortIconButton(
+                    icon: "plus",
+                    help: "common.add"
+                ) { addBundleID() }
             }
         }
     }
@@ -435,15 +432,22 @@ struct SettingsView: View {
         settings.excludedBundleIDs.insert(trimmed)
         newBundleID = ""
     }
+}
 
-    @ViewBuilder
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(LocalizedStringKey(title))
-                .textCase(.uppercase)
-                .font(Theme.Fonts.technical(size: 10))
-                .foregroundColor(Theme.Colors.textSecondary)
-            content()
+// MARK: - Model Picker
+
+private struct ModelPicker: View {
+    let label: LocalizedStringKey
+    @Binding var selection: String
+    let options: [String]
+
+    var body: some View {
+        Picker(label, selection: $selection) {
+            ForEach(options, id: \.self) { model in
+                Text(model).tag(model)
+            }
         }
+        .pickerStyle(.menu)
+        .tint(HortColors.accent)
     }
 }

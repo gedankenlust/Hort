@@ -9,24 +9,24 @@ struct AskView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: HortSpacing.lg) {
             header
             inputRow
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: HortSpacing.lg) {
                     if let error = rag.errorMessage {
                         Text(error)
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.Colors.danger)
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.danger)
                     }
 
                     if rag.isAnswering && rag.answer.isEmpty {
-                        HStack(spacing: 8) {
+                        HStack(spacing: HortSpacing.sm) {
                             ProgressView().controlSize(.small)
                             Text("ask.thinking")
-                                .font(Theme.Fonts.technical(size: 11))
-                                .foregroundColor(Theme.Colors.textSecondary)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
                         }
                     }
 
@@ -42,12 +42,13 @@ struct AskView: View {
                         emptyHint
                     }
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, HortSpacing.md)
             }
         }
-        .padding(20)
-        .frame(width: 560, height: 640)
-        .background(Theme.Colors.surface)
+        .padding(HortSpacing.xl)
+        .frame(minWidth: 420, idealWidth: 560, maxWidth: .infinity,
+               minHeight: 360, idealHeight: 640, maxHeight: .infinity)
+        .background(HortColors.surface)
         .onAppear {
             inputFocused = true
             validateModel()
@@ -59,42 +60,32 @@ struct AskView: View {
     private var header: some View {
         HStack {
             Image(systemName: "sparkles")
-                .foregroundColor(Theme.Colors.accent)
+                .foregroundColor(HortColors.accent)
             Text("ask.title")
-                .font(Theme.Fonts.technical(size: 16))
-                .foregroundColor(Theme.Colors.accent)
+                .font(HortTypography.technical(size: HortTypography.Size.headline))
+                .foregroundColor(HortColors.accent)
             Spacer()
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(Theme.Colors.textTertiary)
-            }
-            .buttonStyle(.plain)
+            HortIconButton(icon: "xmark", help: "common.cancel") { dismiss() }
         }
     }
 
     // MARK: - Input
 
     private var inputRow: some View {
-        HStack(spacing: 8) {
-            TextField("ask.placeholder", text: $rag.question)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.Colors.textPrimary)
-                .focused($inputFocused)
-                .onSubmit { rag.ask() }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(Theme.Colors.background)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        HStack(spacing: HortSpacing.sm) {
+            HortTextField(
+                placeholder: "ask.placeholder",
+                text: $rag.question,
+                onSubmit: { rag.ask() },
+                leadingIcon: "magnifyingglass",
+                focus: Binding(get: { inputFocused }, set: { inputFocused = $0 })
+            )
 
-            Button(action: { rag.ask() }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(canAsk ? Theme.Colors.accent : Theme.Colors.textTertiary)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canAsk)
+            HortIconButton(
+                icon: "arrow.up",
+                help: "ask.help",
+                disabled: !canAsk
+            ) { rag.ask() }
         }
     }
 
@@ -105,62 +96,131 @@ struct AskView: View {
     // MARK: - Answer
 
     private var answerBox: some View {
-        Text(rag.answer)
-            .font(.system(size: 13))
-            .lineSpacing(3)
-            .foregroundColor(Theme.Colors.textPrimary)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Theme.Colors.accentSoft)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Theme.Colors.accent.opacity(0.2), lineWidth: 1)
+        Group {
+            if let attributed = attributedAnswer(from: rag.answer) {
+                Text(attributed)
+            } else {
+                Text(rag.answer)
+                    .font(HortTypography.primary())
+                    .lineSpacing(3)
+                    .foregroundColor(HortColors.textPrimary)
+            }
+        }
+        .textSelection(.enabled)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(HortSpacing.md)
+        .background(HortColors.accentSoft)
+        .clipShape(RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
+                .strokeBorder(HortColors.accent.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func attributedAnswer(from markdown: String) -> AttributedString? {
+        guard !markdown.isEmpty else { return nil }
+
+        // Try full Markdown first so paragraphs and lists render properly.
+        do {
+            return try AttributedString(
+                markdown: markdown,
+                options: .init(interpretedSyntax: .full),
+                baseURL: nil
             )
+        } catch {
+            // Streaming answers may be incomplete; fall back to inline-only
+            // formatting that at least preserves whitespace.
+            do {
+                return try AttributedString(
+                    markdown: markdown,
+                    options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace),
+                    baseURL: nil
+                )
+            } catch {
+                return plainAttributedAnswer(from: markdown)
+            }
+        }
+    }
+
+    private func plainAttributedAnswer(from text: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        attributed.font = HortTypography.primary()
+        attributed.foregroundColor = HortColors.textPrimary
+        return attributed
     }
 
     // MARK: - Sources
 
     private var sourcesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("ask.sources")
-                .font(Theme.Fonts.label(11, weight: .bold))
-                .foregroundColor(Theme.Colors.textSecondary)
+        VStack(alignment: .leading, spacing: HortSpacing.sm) {
+            HortSectionHeader(title: "ask.sources")
 
             ForEach(Array(rag.sources.enumerated()), id: \.element.id) { index, memory in
                 Button(action: {
                     AppState.shared.reveal(memory.id)
                     dismiss()
                 }) {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("[\(index + 1)]")
-                            .font(.system(size: 11, weight: .semibold).monospaced())
-                            .foregroundColor(Theme.Colors.accent)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(sourceTitle(memory))
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.Colors.textPrimary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                            if let app = memory.sourceApp {
-                                Text(app)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(Theme.Colors.textTertiary)
+                    HortCard(isSelected: false, isHovering: false, cornerRadius: HortRadius.medium) {
+                        HStack(alignment: .center, spacing: HortSpacing.sm) {
+                            sourceThumbnail(memory)
+
+                            VStack(alignment: .leading, spacing: HortSpacing.xs) {
+                                HStack(spacing: HortSpacing.xs) {
+                                    Image(systemName: iconName(for: memory.type))
+                                        .font(.system(size: 10))
+                                        .foregroundColor(HortColors.accent)
+
+                                    if let app = memory.sourceApp, !app.isEmpty {
+                                        Text(app)
+                                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                            .foregroundColor(HortColors.textTertiary)
+                                            .lineLimit(1)
+                                    }
+
+                                    Spacer(minLength: 0)
+
+                                    Text(sourceDate(memory))
+                                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                        .foregroundColor(HortColors.textTertiary)
+                                }
+
+                                Text(sourceTitle(memory))
+                                    .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
+                                    .foregroundColor(HortColors.textPrimary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
                             }
+
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 10))
+                                .foregroundColor(HortColors.textTertiary)
                         }
-                        Spacer(minLength: 0)
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 9))
-                            .foregroundColor(Theme.Colors.textTertiary)
+                        .padding(HortSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.Colors.elevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sourceThumbnail(_ memory: MemoryObject) -> some View {
+        if let path = imagePath(for: memory), let image = NSImage(contentsOfFile: path) {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous)
+                    .fill(HortColors.accentSoft)
+                    .frame(width: 44, height: 44)
+                Image(systemName: iconName(for: memory.type))
+                    .font(.system(size: 16))
+                    .foregroundColor(HortColors.accent)
             }
         }
     }
@@ -177,18 +237,45 @@ struct AskView: View {
         return memory.type.rawValue.capitalized
     }
 
+    private func sourceDate(_ memory: MemoryObject) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: memory.createdAt, relativeTo: Date())
+    }
+
+    private func imagePath(for memory: MemoryObject) -> String? {
+        if let thumb = memory.thumbnailPath, FileManager.default.fileExists(atPath: thumb) {
+            return thumb
+        }
+        if memory.type == .image || memory.type == .screenshot || memory.type == .file,
+           let content = memory.content, FileManager.default.fileExists(atPath: content) {
+            return content
+        }
+        return nil
+    }
+
+    private func iconName(for type: MemoryType) -> String {
+        switch type {
+        case .text: return "text.alignleft"
+        case .url: return "link"
+        case .image: return "photo"
+        case .screenshot: return "camera.viewfinder"
+        case .file: return "doc"
+        }
+    }
+
     // MARK: - Empty hint
 
     private var emptyHint: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: HortSpacing.sm) {
             Text("ask.hint_title")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Theme.Colors.textSecondary)
+                .font(HortTypography.label(size: HortTypography.Size.bodySmall))
+                .foregroundColor(HortColors.textSecondary)
             Text("ask.hint_body")
-                .font(.system(size: 11))
-                .foregroundColor(Theme.Colors.textTertiary)
+                .font(HortTypography.primary(size: HortTypography.Size.caption))
+                .foregroundColor(HortColors.textTertiary)
         }
-        .padding(.top, 8)
+        .padding(.top, HortSpacing.sm)
     }
 
     /// Mirrors SettingsView: if the configured generation model isn't installed,

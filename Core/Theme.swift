@@ -1,61 +1,88 @@
 import SwiftUI
 
+/// Hort design system entry point.
+///
+/// New code should prefer the typed token enums (`HortColors`, `HortTypography`,
+/// `HortSpacing`, `HortRadius`, `HortAnimation`, `HortSizing`) imported from
+/// `UI/DesignSystem/HortDesignTokens.swift`. The nested `Theme.Colors`,
+/// `Theme.Fonts` and `Theme.Layout` aliases are kept for backwards
+/// compatibility with existing views during the migration.
 enum Theme {
     enum Colors {
-        // Surfaces — deep graphite with a faint blue cast, layered for elevation.
-        static let background  = Color(hex: 0x0B0E14) // app canvas
-        static let surface     = Color(hex: 0x11161F) // sidebar / panels
-        static let elevated    = Color(hex: 0x171D29) // cards
-        static let elevatedHi  = Color(hex: 0x1F2738) // hover / selected fill
+        // Surfaces
+        static let background    = HortColors.background
+        static let surface       = HortColors.surface
+        static let elevated      = HortColors.elevated
+        static let elevatedHi    = HortColors.elevatedHover
 
-        // Accent — a single restrained cyan used as punctuation, not decoration.
-        static let accent      = Color(hex: 0x32D2E0)
-        static let accentSoft  = Color(hex: 0x32D2E0).opacity(0.14)
+        // Accent
+        static let accent        = HortColors.accent
+        static let accentSoft    = HortColors.accentSoft
+        static let accentMuted   = HortColors.accentMuted
 
-        // Text — three contrast tiers.
-        static let textPrimary   = Color(hex: 0xF1F4F9)
-        static let textSecondary = Color(hex: 0x9AA5B5)
-        static let textTertiary  = Color(hex: 0x5B6573)
-        /// Back-compat alias still referenced by some views.
-        static let secondaryAccent = Color(hex: 0x5B6573)
+        // Text
+        static let textPrimary   = HortColors.textPrimary
+        static let textSecondary = HortColors.textSecondary
+        static let textTertiary  = HortColors.textTertiary
 
-        // Hairlines.
-        static let border        = Color.white.opacity(0.07)
-        static let borderStrong  = Color.white.opacity(0.12)
+        // Hairlines
+        static let border        = HortColors.border
+        static let borderStrong  = HortColors.borderStrong
+        static let borderFocus   = HortColors.borderFocus
 
-        // Semantic.
-        static let danger  = Color(hex: 0xFF5C5C)
-        static let warning = Color(hex: 0xF5B544)
+        // Semantic
+        static let danger        = HortColors.danger
+        static let dangerSoft    = HortColors.dangerSoft
+        static let warning       = HortColors.warning
+        static let warningSoft   = HortColors.warningSoft
+        static let success       = HortColors.success
+        static let successSoft   = HortColors.successSoft
+        static let info          = HortColors.info
+
+        // Deprecated alias — kept temporarily for any lingering references.
+        @available(*, deprecated, renamed: "textTertiary")
+        static let secondaryAccent = HortColors.textTertiary
     }
 
     enum Fonts {
-        /// Tracked label text (small caps headers, metadata). System font now —
-        /// the old monospace look is dropped for Apple-grade clarity.
-        static func technical(size: CGFloat) -> Font {
-            .system(size: size, weight: .medium)
+        static func technical(size: CGFloat = HortTypography.Size.bodySmall) -> Font {
+            HortTypography.technical(size: size)
         }
 
-        static func label(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-            .system(size: size, weight: weight)
+        static func label(_ size: CGFloat = HortTypography.Size.bodySmall,
+                          weight: Font.Weight = HortTypography.Weight.label) -> Font {
+            HortTypography.label(size: size, weight: weight)
         }
 
-        static func primary(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-            .system(size: size, weight: weight)
+        static func primary(size: CGFloat = HortTypography.Size.body,
+                            weight: Font.Weight = .regular) -> Font {
+            HortTypography.primary(size: size, weight: weight)
         }
     }
 
     enum Layout {
-        static let cornerRadius: CGFloat = 10
-        static let cardRadius: CGFloat = 12
-        static let spacing: CGFloat = 12
-        static let sidebarWidth: CGFloat = 248
-        static let inspectorWidth: CGFloat = 300
+        static let cornerRadius: CGFloat  = HortRadius.medium
+        static let cardRadius: CGFloat    = HortRadius.large
+        static let spacing: CGFloat       = HortSpacing.md
+        static let sidebarWidth: CGFloat  = HortSizing.sidebarWidth
+        static let inspectorWidth: CGFloat = HortSizing.inspectorWidth
 
-        // Uniform tile grid.
-        static let cardHeight: CGFloat = 208
-        static let cardMinWidth: CGFloat = 240
-        static let cardMaxWidth: CGFloat = 320
-        static let gridSpacing: CGFloat = 16
+        static let cardHeight: CGFloat    = HortSizing.cardHeight
+        static let cardMinWidth: CGFloat  = HortSizing.cardMinWidth
+        static let cardMaxWidth: CGFloat  = HortSizing.cardMaxWidth
+        static let gridSpacing: CGFloat   = HortSizing.cardSpacing
+
+        // Padding tokens
+        static let paddingSmall:  CGFloat = HortSpacing.sm
+        static let paddingMedium: CGFloat = HortSpacing.md
+        static let paddingLarge:  CGFloat = HortSpacing.lg
+        static let paddingXL:     CGFloat = HortSpacing.xxl
+    }
+
+    enum Animation {
+        static let fast: Double   = HortAnimation.fast
+        static let normal: Double = HortAnimation.normal
+        static let slow: Double   = HortAnimation.slow
     }
 }
 

@@ -6,6 +6,7 @@
 "sidebar.boards" = "Boards";
 "sidebar.tags" = "Tags";
 "sidebar.new_board" = "Neues Board";
+"sidebar.board_name_placeholder" = "Board-Name…";
 "sidebar.system_live" = "System Aktiv";
 "sidebar.capture_paused" = "Erfassung Pausiert";
 "sidebar.rename_board" = "Board umbenennen";
@@ -54,6 +55,8 @@
 /* Inspector */
 "inspector.select_memory" = "Wähle ein Memory aus";
 "inspector.source" = "Quelle";
+"inspector.board" = "Board";
+"inspector.folder" = "Ordner";
 "inspector.id" = "ID";
 "inspector.path" = "Pfad";
 "inspector.tags" = "Tags";
@@ -80,6 +83,8 @@
 "inspector.unarchive_all" = "Alle wiederherstellen";
 "inspector.delete_all" = "Alle löschen";
 "inspector.clear_selection" = "Auswahl aufheben";
+"inspector.analysis_error" = "Fehler: %@";
+"inspector.and_more" = "und %d weitere";
 
 /* Dashboard */
 "dashboard.search" = "Suche";
@@ -107,10 +112,11 @@
 "dashboard.exported" = "Exportiert %@ → %@";
 "dashboard.export_failed" = "Export fehlgeschlagen";
 "dashboard.image_asset" = "Bild-Datei";
+"dashboard.clear_search" = "Suche leeren";
 
 /* Onboarding */
-"onboarding.status" = "SYSTEM_INITIALIZED // AMBIENT LAYER ACTIVE";
-"onboarding.title" = "Hort Memory System";
+"onboarding.status" = "Bereit";
+"onboarding.title" = "Willkommen bei Hort";
 "onboarding.subtitle" = "Dein lokales, visuelles Gedächtnis läuft im Hintergrund und wartet auf Inhalte.";
 "onboarding.step1.title" = "Erfassung & Analyse";
 "onboarding.step1.desc" = "Kopiere Texte, Bilder oder URLs. Mache Screenshots auf deinem Schreibtisch. Hort erfasst sie geräuschlos.";
@@ -118,7 +124,9 @@
 "onboarding.step2.desc" = "Erstelle Boards in der Sidebar. Ziehe Memory-Karten einfach per Drag & Drop auf Boards, Tags oder ins Archiv.";
 "onboarding.step3.title" = "Obsidian Export";
 "onboarding.step3.desc" = "Exportiere deine Boards als Obsidian-kompatible Markdown-ZIP-Dateien inklusive aller verknüpften Bildmedien.";
-"onboarding.awaiting" = "system_status: awaiting_first_capture";
+"onboarding.awaiting" = "Warte auf erste Erinnerung…";
+"onboarding.start_capture" = "Capture starten";
+"onboarding.stop_capture" = "Capture stoppen";
 
 /* Ask */
 "ask.title" = "Frag dein Gedächtnis";
@@ -135,6 +143,7 @@
 "common.delete" = "Löschen";
 "common.add" = "Hinzufügen";
 "common.ok" = "OK";
+"common.done" = "Fertig";
 "common.name" = "Name";
 "common.change_color" = "Farbe ändern";
 "common.reset" = "Zurücksetzen";

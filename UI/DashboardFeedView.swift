@@ -21,37 +21,37 @@ struct DashboardFeedView: View {
 
     // Flexible columns: as many as fit at the minimum width, each stretching to
     // fill the remaining space so cards expand/contract with the column width.
-    private let columns = [GridItem(.adaptive(minimum: Theme.Layout.cardMinWidth, maximum: .infinity),
-                                    spacing: Theme.Layout.gridSpacing)]
+    private let columns = [GridItem(.adaptive(minimum: HortSizing.cardMinWidth, maximum: .infinity),
+                                    spacing: HortSizing.cardSpacing)]
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack(spacing: 12) {
+            HStack(spacing: HortSpacing.md) {
                 Text(isSearchActive ? LocalizedStringKey("dashboard.search") : LocalizedStringKey(title))
-                    .font(Theme.Fonts.label(20, weight: .semibold))
-                    .foregroundColor(Theme.Colors.textPrimary)
+                    .font(HortTypography.label(size: HortTypography.Size.title))
+                    .foregroundColor(HortColors.textPrimary)
                 Text("\(memories.count)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(HortTypography.label(size: 12))
                     .monospacedDigit()
-                    .foregroundColor(Theme.Colors.textSecondary)
+                    .foregroundColor(HortColors.textSecondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(Theme.Colors.elevated)
+                    .background(HortColors.elevated)
                     .clipShape(Capsule())
 
                 if selectedMemories.count >= 1 {
                     Button(action: { selectedMemories.removeAll() }) {
-                        HStack(spacing: 5) {
+                        HStack(spacing: HortSpacing.xs) {
                             Text("\(selectedMemories.count) " + L("dashboard.selected"))
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(HortTypography.label(size: 11))
                                 .monospacedDigit()
                             Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                         }
-                        .foregroundColor(Theme.Colors.accent)
-                        .padding(.horizontal, 8)
+                        .foregroundColor(HortColors.accent)
+                        .padding(.horizontal, HortSpacing.sm)
                         .padding(.vertical, 3)
-                        .background(Theme.Colors.accentSoft)
+                        .background(HortColors.accentSoft)
                         .clipShape(Capsule())
                         .contentShape(Capsule())
                     }
@@ -63,22 +63,24 @@ struct DashboardFeedView: View {
 
                 if let note = exportNote {
                     Text(note)
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.Colors.textTertiary)
+                        .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
+                        .foregroundColor(HortColors.textTertiary)
                         .lineLimit(1)
                 }
                 if settings.semanticEnabled {
-                    iconButton("sparkles", help: "ask.help") { app.showingAsk = true }
+                    HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
                 }
-                iconButton("square.and.arrow.up", help: "dashboard.export_help",
-                           disabled: memories.isEmpty, action: exportCurrent)
+                HortIconButton(icon: "square.and.arrow.up",
+                               help: "dashboard.export_help",
+                               disabled: memories.isEmpty,
+                               action: exportCurrent)
                 searchControl
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(Theme.Colors.background)
+            .padding(.horizontal, HortSpacing.xxl)
+            .padding(.vertical, HortSpacing.lg)
+            .background(HortColors.background)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Theme.Colors.border).frame(height: 1)
+                Rectangle().fill(HortColors.border).frame(height: 1)
             }
 
             // Content Grid or Onboarding
@@ -86,21 +88,26 @@ struct DashboardFeedView: View {
                 OnboardingView()
             } else {
                 ScrollView {
-                    if memories.isEmpty {
+                    if isSearchActive && memories.isEmpty {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(HortColors.accent)
+                            .frame(maxWidth: .infinity, minHeight: 420)
+                    } else if memories.isEmpty {
                         emptyState
                     } else {
                         LazyVGrid(columns: columns, alignment: .leading,
-                                  spacing: Theme.Layout.gridSpacing) {
+                                  spacing: HortSizing.cardSpacing) {
                             ForEach(memories) { memory in
                                 card(for: memory)
                             }
                         }
-                        .padding(24)
+                        .padding(HortSpacing.xxl)
                     }
                 }
             }
         }
-        .background(Theme.Colors.background)
+        .background(HortColors.background)
         .onChange(of: app.focusSearchToken) { _, _ in
             isSearching = true
             searchFocused = true
@@ -127,22 +134,6 @@ struct DashboardFeedView: View {
         .onChange(of: searchText) { _, _ in
             refreshMemories()
         }
-    }
-
-    private func iconButton(_ systemName: String, help: String,
-                            disabled: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 14))
-                .foregroundColor(disabled ? Theme.Colors.textTertiary.opacity(0.5)
-                                          : Theme.Colors.textSecondary)
-                .frame(width: 30, height: 30)
-                .background(Theme.Colors.elevated)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .help(help)
     }
 
     private var isSearchActive: Bool {
@@ -237,33 +228,23 @@ struct DashboardFeedView: View {
     @ViewBuilder
     private var searchControl: some View {
         if isSearching {
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.Colors.textTertiary)
-                TextField(LocalizedStringKey("dashboard.search_placeholder"), text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .foregroundColor(Theme.Colors.textPrimary)
-                    .frame(width: 200)
-                    .focused($searchFocused)
-                Button(action: closeSearch) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.Colors.textTertiary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Theme.Colors.elevated)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Theme.Colors.accent.opacity(0.5), lineWidth: 1)
+            HortTextField(
+                placeholder: "dashboard.search_placeholder",
+                text: $searchText,
+                leadingIcon: "magnifyingglass",
+                trailingView: AnyView(
+                    Button(action: closeSearch) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(HortColors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                ),
+                focus: $searchFocused
             )
+            .frame(width: 200)
         } else {
-            iconButton("magnifyingglass", help: "dashboard.search") {
+            HortIconButton(icon: "magnifyingglass", help: "dashboard.search") {
                 isSearching = true
                 searchFocused = true
             }
@@ -337,30 +318,13 @@ struct DashboardFeedView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: emptyIcon)
-                .font(.system(size: 32))
-                .foregroundColor(Theme.Colors.accent)
-                .frame(width: 80, height: 80)
-                .background(Theme.Colors.accentSoft)
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Theme.Colors.accent.opacity(0.3), lineWidth: 1)
-                )
-            
-            VStack(spacing: 8) {
-                Text(emptyText)
-                    .font(Theme.Fonts.label(16, weight: .semibold))
-                    .foregroundColor(Theme.Colors.textPrimary)
-                
-                Text(emptySubtext)
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 360)
-            }
-        }
+        HortEmptyState(
+            icon: emptyIcon,
+            title: LocalizedStringKey(emptyText),
+            subtitle: LocalizedStringKey(emptySubtext),
+            actionTitle: isSearchActive ? LocalizedStringKey("dashboard.clear_search") : nil,
+            action: isSearchActive ? closeSearch : nil
+        )
         .frame(maxWidth: .infinity, minHeight: 420)
     }
 
@@ -406,19 +370,22 @@ struct DashboardFeedView: View {
     @ViewBuilder
     private func dragPreview(for memory: MemoryObject) -> some View {
         if selectedMemories.contains(memory.id), selectedMemories.count > 1 {
-            HStack(spacing: 8) {
+            HStack(spacing: HortSpacing.sm) {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Theme.Colors.accent)
+                    .foregroundColor(HortColors.accent)
                 Text("\(selectedMemories.count) " + L("dashboard.selected"))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Theme.Colors.textPrimary)
+                    .font(HortTypography.label(size: 11))
+                    .foregroundColor(HortColors.textPrimary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Theme.Colors.elevatedHi)
-            .cornerRadius(6)
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.Colors.accent, lineWidth: 1))
+            .padding(.horizontal, HortSpacing.sm)
+            .padding(.vertical, HortSpacing.xs)
+            .background(HortColors.elevatedHover)
+            .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous)
+                    .strokeBorder(HortColors.accent, lineWidth: 1)
+            )
         } else {
             singleDragPreview(for: memory)
         }
@@ -426,34 +393,34 @@ struct DashboardFeedView: View {
 
     @ViewBuilder
     private func singleDragPreview(for memory: MemoryObject) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: HortSpacing.sm) {
             Image(systemName: iconName(for: memory.type))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(Theme.Colors.accent)
+                .foregroundColor(HortColors.accent)
                 .frame(width: 18, height: 18)
-                .background(Theme.Colors.accentSoft)
+                .background(HortColors.accentSoft)
                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-            
+
             Text(memory.type.rawValue.uppercased())
-                .font(Theme.Fonts.label(9, weight: .semibold))
+                .font(HortTypography.label(size: 9))
                 .tracking(0.5)
-                .foregroundColor(Theme.Colors.textSecondary)
-            
+                .foregroundColor(HortColors.textSecondary)
+
             if let content = memory.content, !content.isEmpty {
                 let display = memory.type == .image || memory.type == .screenshot ? L("dashboard.image_asset") : content
                 Text(display.prefix(20))
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.Colors.textPrimary)
+                    .font(HortTypography.primary(size: 11))
+                    .foregroundColor(HortColors.textPrimary)
                     .lineLimit(1)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Theme.Colors.elevatedHi)
-        .cornerRadius(6)
+        .padding(.horizontal, HortSpacing.sm)
+        .padding(.vertical, HortSpacing.xs)
+        .background(HortColors.elevatedHover)
+        .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Theme.Colors.accent, lineWidth: 1)
+            RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous)
+                .strokeBorder(HortColors.accent, lineWidth: 1)
         )
     }
 

@@ -23,9 +23,9 @@ struct InspectorPanel: View {
                 emptyState
             }
         }
-        .frame(minWidth: 260)
+        .frame(minWidth: HortSizing.inspectorWidth)
         .frame(maxHeight: .infinity)
-        .background(Theme.Colors.surface)
+        .background(HortColors.surface)
         .onChange(of: selectedMemories) { _, newSelection in
             if newSelection.count == 1, let id = newSelection.first {
                 memory = engine.fetch(id: id)
@@ -43,168 +43,126 @@ struct InspectorPanel: View {
     @ViewBuilder
     private func detail(for memory: MemoryObject) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: HortSpacing.xl) {
                 // Header
-                HStack(spacing: 11) {
+                HStack(spacing: HortSpacing.md) {
                     Image(systemName: iconName(for: memory.type))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Theme.Colors.accent)
+                        .foregroundColor(HortColors.accent)
                         .frame(width: 32, height: 32)
-                        .background(Theme.Colors.accentSoft)
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .background(HortColors.accentSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                     VStack(alignment: .leading, spacing: 1) {
                         Text(memory.type.rawValue.capitalized)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(Theme.Colors.textPrimary)
+                            .font(HortTypography.label(size: HortTypography.Size.headline))
+                            .foregroundColor(HortColors.textPrimary)
                         Text(memory.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(size: 11))
-                            .foregroundColor(Theme.Colors.textTertiary)
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textTertiary)
                     }
                     Spacer()
                     Button(action: { toggleFavorite(memory) }) {
                         Image(systemName: memory.isFavorite ? "star.fill" : "star")
                             .font(.system(size: 14))
-                            .foregroundColor(memory.isFavorite ? Theme.Colors.accent
-                                                               : Theme.Colors.textTertiary)
+                            .foregroundColor(memory.isFavorite ? HortColors.accent : HortColors.textTertiary)
                     }
                     .buttonStyle(.plain)
-                    .help("Toggle favourite")
+                    .help(LocalizedStringKey("inspector.favorite"))
                 }
 
-                VStack(spacing: 9) {
+                VStack(spacing: HortSpacing.sm) {
                     metaRow(LocalizedStringKey("inspector.source"), memory.sourceApp ?? "Unknown")
-                    if let board = memory.board { metaRow("Board", board) }
-                    if let folder = memory.folder { metaRow("Folder", folder) }
+                    if let board = memory.board { metaRow(LocalizedStringKey("inspector.board"), board) }
+                    if let folder = memory.folder { metaRow(LocalizedStringKey("inspector.folder"), folder) }
                     metaRow(LocalizedStringKey("inspector.id"), String(memory.id.uuidString.prefix(8)).lowercased())
                 }
 
                 if let path = filePath(memory) {
-                    section("inspector.path") {
-                        Text(path)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(Theme.Colors.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                            .padding(10)
-                            .background(Theme.Colors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    section(LocalizedStringKey("inspector.path")) {
+                        HStack(spacing: HortSpacing.sm) {
+                            Text(path)
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .textSelection(.enabled)
+                            Spacer()
+                            HortIconButton(icon: "doc.on.doc",
+                                           help: LocalizedStringKey("inspector.copy")) {
+                                ClipboardMonitor.shared.writeWithoutCapture(path)
+                            }
+                        }
+                        .padding(HortSpacing.md)
+                        .background(HortColors.background)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                     }
                 }
 
                 if let content = memory.content, !content.isEmpty, memory.type != .image, memory.type != .screenshot {
-                    section("inspector.content") {
+                    section(LocalizedStringKey("inspector.content")) {
                         SelectableText(text: content)
-                            .frame(height: 150)
-                            .padding(10)
-                            .background(Theme.Colors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
+                            .padding(HortSpacing.md)
+                            .background(HortColors.background)
+                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                     }
                 }
 
                 if (memory.type == .image || memory.type == .screenshot),
                    let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
-                    section("inspector.ocr_text") {
+                    section(LocalizedStringKey("inspector.ocr_text")) {
                         SelectableText(text: ocrText)
-                            .frame(height: 150)
-                            .padding(10)
-                            .background(Theme.Colors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
+                            .padding(HortSpacing.md)
+                            .background(HortColors.background)
+                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                     }
                 }
 
                 if settings.aiEnabled {
-                    section("inspector.ai_analysis") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if let aiSummary = memory.metadata["aiSummary"], !aiSummary.isEmpty {
-                                Text(aiSummary)
-                                    .font(.system(size: 11))
-                                    .lineSpacing(3)
-                                    .foregroundColor(Theme.Colors.accent)
-                                    .padding(10)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Theme.Colors.accentSoft)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .strokeBorder(Theme.Colors.accent.opacity(0.2), lineWidth: 1)
-                                    )
-                            }
-                            
-                            if analyzing {
-                                if !streamingSummary.isEmpty {
-                                    Text(streamingSummary)
-                                        .font(.system(size: 11))
-                                        .lineSpacing(3)
-                                        .foregroundColor(Theme.Colors.textSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                HStack(spacing: 8) {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                    Text("inspector.analyzing")
-                                        .font(Theme.Fonts.technical(size: 10))
-                                        .foregroundColor(Theme.Colors.textSecondary)
-                                }
-                                .padding(.vertical, 4)
-                            } else {
-                                Button(action: { runAIAnalysis(for: memory) }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "sparkles")
-                                            .font(.system(size: 11))
-                                        Text(memory.metadata["aiSummary"] != nil ? "inspector.reanalyze" : "inspector.analyze")
-                                            .font(.system(size: 11, weight: .semibold))
-                                    }
-                                    .foregroundColor(Theme.Colors.background)
-                                    .padding(.vertical, 6)
-                                    .padding(.horizontal, 12)
-                                    .background(Theme.Colors.accent)
-                                    .cornerRadius(6)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            
-                            if let errorMsg = aiError {
-                                Text(errorMsg)
-                                    .font(Theme.Fonts.technical(size: 9))
-                                    .foregroundColor(Theme.Colors.danger)
-                            }
-                        }
-                    }
+                    aiAnalysisSection(for: memory)
                 }
 
-                section("inspector.tags") { tagEditor(for: memory) }
+                section(LocalizedStringKey("inspector.tags")) { tagEditor(for: memory) }
 
-                section("inspector.actions") {
-                    VStack(spacing: 6) {
-                        ActionButton(icon: "doc.on.doc", title: "inspector.copy") {
+                section(LocalizedStringKey("inspector.actions")) {
+                    VStack(spacing: HortSpacing.sm) {
+                        HortButton(title: LocalizedStringKey("inspector.copy"),
+                                   icon: "doc.on.doc",
+                                   style: .secondary) {
                             if let content = memory.content {
                                 ClipboardMonitor.shared.writeWithoutCapture(content)
                             }
                         }
-                        ActionButton(icon: "square.and.arrow.up", title: "inspector.export") {
+                        HortButton(title: LocalizedStringKey("inspector.export"),
+                                   icon: "square.and.arrow.up",
+                                   style: .secondary) {
                             exportedURL = try? ExportEngine.shared.exportToMarkdown(memory)
                         }
-                        ActionButton(icon: memory.isArchived ? "tray.and.arrow.up" : "archivebox",
-                                     title: memory.isArchived ? "inspector.unarchive" : "inspector.archive") {
+                        HortButton(title: LocalizedStringKey(memory.isArchived ? "inspector.unarchive" : "inspector.archive"),
+                                   icon: memory.isArchived ? "tray.and.arrow.up" : "archivebox",
+                                   style: .secondary) {
                             let value = !memory.isArchived
                             engine.update(memory) { $0.isArchived = value }
                             selectedMemories.removeAll()
                         }
-                        ActionButton(icon: "trash", title: "inspector.delete", tint: Theme.Colors.danger) {
+                        HortButton(title: LocalizedStringKey("inspector.delete"),
+                                   icon: "trash",
+                                   style: .destructive) {
                             engine.delete(memory)
                             selectedMemories.removeAll()
                         }
                     }
                     if let url = exportedURL {
                         Text("Exported → \(url.lastPathComponent)")
-                            .font(.system(size: 10))
-                            .foregroundColor(Theme.Colors.textTertiary)
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textTertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
                 }
             }
-            .padding(18)
+            .padding(HortSpacing.xl)
         }
     }
 
@@ -252,7 +210,7 @@ struct InspectorPanel: View {
                 }
             } catch {
                 await MainActor.run {
-                    aiError = "Fehler: \(error.localizedDescription)"
+                    aiError = error.localizedDescription
                     analyzing = false
                     streamingSummary = ""
                 }
@@ -261,16 +219,18 @@ struct InspectorPanel: View {
     }
 
     private var multiSelectState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: HortSpacing.xl) {
             Image(systemName: "square.on.square.dashed")
                 .font(.system(size: 32))
-                .foregroundColor(Theme.Colors.textTertiary)
+                .foregroundColor(HortColors.textTertiary)
 
             Text("\(selectedMemories.count) " + L("inspector.selected"))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.Colors.textPrimary)
+                .font(HortTypography.label(size: HortTypography.Size.body))
+                .foregroundColor(HortColors.textPrimary)
 
-            VStack(spacing: 8) {
+            multiSelectPreviews
+
+            VStack(spacing: HortSpacing.sm) {
                 Menu {
                     Button(LocalizedStringKey("inspector.move_to_inbox")) { moveSelected(toBoard: nil) }
                     if !settings.boards.isEmpty { Divider() }
@@ -287,43 +247,104 @@ struct InspectorPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
                     .padding(.horizontal, 11)
-                    .background(Theme.Colors.elevated)
-                    .foregroundColor(Theme.Colors.textSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(HortColors.elevated)
+                    .foregroundColor(HortColors.textSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
 
-                ActionButton(icon: "star", title: "inspector.favorite_all") {
+                HortButton(title: LocalizedStringKey("inspector.favorite_all"),
+                           icon: "star",
+                           style: .secondary) {
                     engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
                     selectedMemories.removeAll()
                 }
-                ActionButton(icon: "star.slash", title: "inspector.unfavorite_all") {
+                HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
+                           icon: "star.slash",
+                           style: .secondary) {
                     engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
                     selectedMemories.removeAll()
                 }
                 if AppState.shared.selection == .archive {
-                    ActionButton(icon: "tray.and.arrow.up", title: "inspector.unarchive_all") {
+                    HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
+                               icon: "tray.and.arrow.up",
+                               style: .secondary) {
                         engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
                         selectedMemories.removeAll()
                     }
                 } else {
-                    ActionButton(icon: "archivebox", title: "inspector.archive_all") {
+                    HortButton(title: LocalizedStringKey("inspector.archive_all"),
+                               icon: "archivebox",
+                               style: .secondary) {
                         engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
                         selectedMemories.removeAll()
                     }
                 }
-                ActionButton(icon: "trash", title: "inspector.delete_all", tint: Theme.Colors.danger) {
+                HortButton(title: LocalizedStringKey("inspector.delete_all"),
+                           icon: "trash",
+                           style: .destructive) {
                     engine.delete(ids: selectedMemories)
                     selectedMemories.removeAll()
                 }
-                ActionButton(icon: "xmark.circle", title: "inspector.clear_selection") {
+                HortButton(title: LocalizedStringKey("inspector.clear_selection"),
+                           icon: "xmark.circle",
+                           style: .ghost) {
                     selectedMemories.removeAll()
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, HortSpacing.xxl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var multiSelectPreviews: some View {
+        let objects = selectedMemoryObjects
+        let previews = Array(objects.prefix(4))
+        let remaining = objects.count - previews.count
+
+        if !previews.isEmpty {
+            HStack(spacing: -HortSpacing.sm) {
+                ForEach(previews) { memory in
+                    thumbnailPreview(for: memory)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous)
+                                .strokeBorder(HortColors.border, lineWidth: 1)
+                        )
+                }
+            }
+            .padding(.horizontal, HortSpacing.sm)
+
+            if remaining > 0 {
+                Text(String(format: L("inspector.and_more"), remaining))
+                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                    .foregroundColor(HortColors.textTertiary)
+            }
+        }
+    }
+
+    private var selectedMemoryObjects: [MemoryObject] {
+        selectedMemories.compactMap { engine.fetch(id: $0) }
+    }
+
+    private func thumbnailPreview(for memory: MemoryObject) -> some View {
+        Group {
+            if let path = memory.thumbnailPath ?? memory.content,
+               (memory.type == .image || memory.type == .screenshot),
+               let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Image(systemName: iconName(for: memory.type))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(HortColors.accent)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .background(HortColors.elevated)
+        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
     }
 
     /// Moves every selected memory to `board` (nil = back to Inbox) and unarchives it.
@@ -333,40 +354,85 @@ struct InspectorPanel: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "rectangle.righthalf.inset.filled")
-                .font(.system(size: 22))
-                .foregroundColor(Theme.Colors.textTertiary)
-            Text("inspector.select_memory")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Theme.Colors.textTertiary)
-        }
+        HortEmptyState(
+            icon: "rectangle.righthalf.inset.filled",
+            title: LocalizedStringKey("inspector.select_memory")
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func metaRow(_ label: LocalizedStringKey, _ value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(Theme.Colors.textTertiary)
+                .font(HortTypography.label(size: HortTypography.Size.caption, weight: .medium))
+                .foregroundColor(HortColors.textTertiary)
             Spacer()
             Text(value)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Theme.Colors.textSecondary)
+                .font(HortTypography.technical())
+                .foregroundColor(HortColors.textSecondary)
                 .lineLimit(1)
         }
     }
 
     @ViewBuilder
-    private func section<Content: View>(_ title: String,
+    private func section<Content: View>(_ title: LocalizedStringKey,
                                         @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text(LocalizedStringKey(title))
-                .textCase(.uppercase)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.8)
-                .foregroundColor(Theme.Colors.textTertiary)
+        VStack(alignment: .leading, spacing: HortSpacing.sm) {
+            HortSectionHeader(title: title)
             content()
+        }
+    }
+
+    @ViewBuilder
+    private func aiAnalysisSection(for memory: MemoryObject) -> some View {
+        section(LocalizedStringKey("inspector.ai_analysis")) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                if analyzing {
+                    if !streamingSummary.isEmpty {
+                        Text(streamingSummary)
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .lineSpacing(3)
+                            .foregroundColor(HortColors.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    HStack(spacing: HortSpacing.sm) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(L("inspector.analyzing"))
+                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textSecondary)
+                    }
+                } else if let errorMsg = aiError {
+                    Text(String(format: L("inspector.analysis_error"), errorMsg))
+                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.danger)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let aiSummary = memory.metadata["aiSummary"], !aiSummary.isEmpty {
+                    Text(aiSummary)
+                        .font(HortTypography.primary(size: HortTypography.Size.caption))
+                        .lineSpacing(3)
+                        .foregroundColor(HortColors.accent)
+                        .padding(HortSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(HortColors.accentSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous)
+                                .strokeBorder(HortColors.accent.opacity(0.2), lineWidth: 1)
+                        )
+                    HortButton(title: LocalizedStringKey("inspector.reanalyze"),
+                               icon: "sparkles",
+                               style: .secondary) {
+                        runAIAnalysis(for: memory)
+                    }
+                } else {
+                    HortButton(title: LocalizedStringKey("inspector.analyze"),
+                               icon: "sparkles",
+                               style: .primary) {
+                        runAIAnalysis(for: memory)
+                    }
+                }
+            }
         }
     }
 
@@ -389,33 +455,27 @@ struct InspectorPanel: View {
     private func tagEditor(for memory: MemoryObject) -> some View {
         if !memory.tags.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: HortSpacing.xs) {
                     ForEach(memory.tags, id: \.self) { tag in
-                        TagChip(text: tag) { removeTag(tag, from: memory) }
+                        HortTagChip(text: tag) { removeTag(tag, from: memory) }
                     }
                 }
             }
         }
-        HStack(spacing: 7) {
-            Image(systemName: "number")
-                .font(.system(size: 11))
-                .foregroundColor(Theme.Colors.textTertiary)
-            TextField(LocalizedStringKey("inspector.add_tag"), text: $newTag)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-                .foregroundColor(Theme.Colors.textPrimary)
-                .onSubmit { addTag(to: memory) }
-            Button(action: { addTag(to: memory) }) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(Theme.Colors.accent)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .background(Theme.Colors.background)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        HortTextField(
+            placeholder: LocalizedStringKey("inspector.add_tag"),
+            text: $newTag,
+            onSubmit: { addTag(to: memory) },
+            leadingIcon: "number",
+            trailingView: AnyView(
+                Button(action: { addTag(to: memory) }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(HortColors.accent)
+                }
+                .buttonStyle(.plain)
+            )
+        )
     }
 
     private func addTag(to memory: MemoryObject) {
@@ -429,36 +489,5 @@ struct InspectorPanel: View {
 
     private func removeTag(_ tag: String, from memory: MemoryObject) {
         self.memory = engine.update(memory) { $0.tags.removeAll { $0 == tag } }
-    }
-}
-
-struct ActionButton: View {
-    let icon: String
-    let title: String
-    var tint: Color = Theme.Colors.textSecondary
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: icon)
-                    .font(.system(size: 12))
-                    .frame(width: 16)
-                Text(LocalizedStringKey(title))
-                    .font(.system(size: 12, weight: .medium))
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .padding(.horizontal, 11)
-            .background(isHovering ? tint.opacity(0.16) : Theme.Colors.elevated)
-            .foregroundColor(isHovering ? tint : Theme.Colors.textSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
     }
 }

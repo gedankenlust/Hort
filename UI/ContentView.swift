@@ -52,7 +52,7 @@ struct ContentView: View {
         .background(Theme.Colors.background)
         .preferredColorScheme(.dark)
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 withAnimation(.easeInOut(duration: 0.45)) { booting = false }
             }
         }

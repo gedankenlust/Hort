@@ -6,6 +6,7 @@
 "sidebar.boards" = "Boards";
 "sidebar.tags" = "Tags";
 "sidebar.new_board" = "New board";
+"sidebar.board_name_placeholder" = "Board name…";
 "sidebar.system_live" = "System Live";
 "sidebar.capture_paused" = "Capture Paused";
 "sidebar.rename_board" = "Rename board";
@@ -54,6 +55,8 @@
 /* Inspector */
 "inspector.select_memory" = "Select a memory";
 "inspector.source" = "Source";
+"inspector.board" = "Board";
+"inspector.folder" = "Folder";
 "inspector.id" = "ID";
 "inspector.path" = "Path";
 "inspector.tags" = "Tags";
@@ -80,6 +83,8 @@
 "inspector.unarchive_all" = "Restore all";
 "inspector.delete_all" = "Delete all";
 "inspector.clear_selection" = "Clear selection";
+"inspector.analysis_error" = "Error: %@";
+"inspector.and_more" = "and %d more";
 
 /* Dashboard */
 "dashboard.search" = "Search";
@@ -107,10 +112,11 @@
 "dashboard.exported" = "Exported %@ → %@";
 "dashboard.export_failed" = "Export failed";
 "dashboard.image_asset" = "Image Asset";
+"dashboard.clear_search" = "Clear Search";
 
 /* Onboarding */
-"onboarding.status" = "SYSTEM_INITIALIZED // AMBIENT LAYER ACTIVE";
-"onboarding.title" = "Hort Memory System";
+"onboarding.status" = "Ready";
+"onboarding.title" = "Welcome to Hort";
 "onboarding.subtitle" = "Your local, visual memory layer runs in the background and awaits content.";
 "onboarding.step1.title" = "Ingestion & Capture";
 "onboarding.step1.desc" = "Copy text, images or URLs. Take screenshots on your Desktop. Hort captures them silently.";
@@ -118,7 +124,9 @@
 "onboarding.step2.desc" = "Create boards in the sidebar. Drag & drop memory cards onto boards, tags or into the Archive.";
 "onboarding.step3.title" = "Obsidian Export";
 "onboarding.step3.desc" = "Export your boards as Obsidian-compatible Markdown ZIP files including all linked image assets.";
-"onboarding.awaiting" = "system_status: awaiting_first_capture";
+"onboarding.awaiting" = "Waiting for your first memory…";
+"onboarding.start_capture" = "Start capture";
+"onboarding.stop_capture" = "Stop capture";
 
 /* Ask */
 "ask.title" = "Ask your memory";
@@ -135,6 +143,7 @@
 "common.delete" = "Delete";
 "common.add" = "Add";
 "common.ok" = "OK";
+"common.done" = "Done";
 "common.name" = "Name";
 "common.change_color" = "Change color";
 "common.reset" = "Reset";
