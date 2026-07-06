@@ -6,18 +6,21 @@ import SwiftUI
 struct MemoryCardView: View {
     let memory: MemoryObject
     var isSelected: Bool = false
+    var boardColor: Color? = nil
     var onCopy: (() -> Void)? = nil
     var onFavorite: (() -> Void)? = nil
     var onArchive: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
+    var onTagClick: ((String) -> Void)? = nil
 
     @State private var isHovering = false
     @State private var justCopied = false
+    @State private var loadedImage: NSImage?
 
     var body: some View {
         HortCard(isSelected: isSelected, isHovering: isHovering) {
             Group {
-                if let path = imagePath, let image = NSImage(contentsOfFile: path) {
+                if let image = loadedImage {
                     // Color.clear defines the (flexible-width, fixed-height) cell;
                     // the image fills it as an overlay and is clipped to it, so the
                     // header/footer overlays always match the card width — even as
@@ -55,12 +58,7 @@ struct MemoryCardView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         headerView(onImage: false)
 
-                        Text(displayText)
-                            .font(HortTypography.primary())
-                            .foregroundColor(HortColors.textPrimary)
-                            .lineSpacing(2)
-                            .lineLimit(6)
-                            .multilineTextAlignment(.leading)
+                        cardContent
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             .padding(.horizontal, HortSpacing.md)
 
@@ -68,7 +66,7 @@ struct MemoryCardView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: Theme.Layout.cardHeight, maxHeight: Theme.Layout.cardHeight)
+            .frame(maxWidth: .infinity, minHeight: HortSizing.cardHeight, maxHeight: HortSizing.cardHeight)
             .overlay(
                 HortColors.accentSoft
                     .opacity(isSelected ? 0.35 : 0)
@@ -76,23 +74,37 @@ struct MemoryCardView: View {
                     .allowsHitTesting(false)
             )
             .overlay(alignment: .topTrailing) { quickActions }
+            .overlay(alignment: .leading) {
+                if let color = boardColor {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(color)
+                        .frame(width: 3, height: 24)
+                        .padding(.leading, 3)
+                }
+            }
         }
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .animation(.easeOut(duration: HortAnimation.fast), value: isSelected)
         .animation(.easeOut(duration: HortAnimation.fast), value: isHovering)
+        .task(id: imagePath) {
+            guard let path = imagePath else { loadedImage = nil; return }
+            if let cached = ImageCache.shared[path] { loadedImage = cached; return }
+            let img = await Task.detached { NSImage(contentsOfFile: path) }.value
+            ImageCache.shared[path] = img
+            loadedImage = img
+        }
     }
 
     // MARK: - Quick actions
 
     @ViewBuilder
     private var quickActions: some View {
-        HStack(spacing: HortSpacing.xs) {
-            quickActionButton(memory.isFavorite ? "star.fill" : "star",
-                              tint: memory.isFavorite ? HortColors.accent : .white,
-                              help: "inspector.favorite") { onFavorite?() }
-
-            if isHovering {
+        if isHovering {
+            HStack(spacing: HortSpacing.xs) {
+                quickActionButton(memory.isFavorite ? "star.fill" : "star",
+                                  tint: memory.isFavorite ? HortColors.accent : .white,
+                                  help: "inspector.favorite") { onFavorite?() }
                 quickActionButton(justCopied ? "checkmark" : "doc.on.doc",
                                   tint: justCopied ? HortColors.accent : .white,
                                   help: "inspector.copy") {
@@ -105,18 +117,18 @@ struct MemoryCardView: View {
                 quickActionButton("archivebox", help: "inspector.archive") { onArchive?() }
                 quickActionButton("trash", tint: HortColors.danger, help: "inspector.delete") { onDelete?() }
             }
+            .padding(HortSpacing.xs)
+            .background(Color.black.opacity(0.4), in: Capsule())
+            .padding(HortSpacing.md)
+            .transition(.opacity)
         }
-        .padding(HortSpacing.xs)
-        .background(Color.black.opacity(0.4), in: Capsule())
-        .padding(HortSpacing.md)
-        .transition(.opacity)
     }
 
     private func quickActionButton(_ icon: String, tint: Color = .white,
                                    help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(HortTypography.label(size: 11))
                 .foregroundColor(tint)
                 .frame(width: HortSizing.quickAction, height: HortSizing.quickAction)
                 .background(Color.black.opacity(0.55))
@@ -135,12 +147,13 @@ struct MemoryCardView: View {
     private func headerView(onImage: Bool) -> some View {
         let labelColor = onImage ? Color.white : HortColors.textSecondary
         let timeColor = onImage ? Color.white.opacity(0.85) : HortColors.textTertiary
+        let tint = onImage ? Color.white : iconTint
         return HStack(spacing: HortSpacing.sm) {
             Image(systemName: iconName)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(onImage ? .white : HortColors.accent)
+                .font(HortTypography.label(size: 11))
+                .foregroundColor(tint)
                 .frame(width: 22, height: 22)
-                .background(onImage ? Color.black.opacity(0.35) : HortColors.accentSoft)
+                .background(onImage ? Color.black.opacity(0.35) : tint.opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: HortRadius.small, style: .continuous))
 
             Text(memory.type.rawValue.uppercased())
@@ -151,7 +164,7 @@ struct MemoryCardView: View {
 
             if memory.isFavorite {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 9))
+                    .font(.system(size: 8))
                     .foregroundColor(HortColors.accent)
             }
 
@@ -177,7 +190,10 @@ struct MemoryCardView: View {
     private func footerView(onImage: Bool) -> some View {
         HStack(spacing: HortSpacing.sm) {
             if !memory.tags.isEmpty {
-                ForEach(memory.tags.prefix(2), id: \.self) { HortTagChip(text: $0) }
+                ForEach(memory.tags.prefix(2), id: \.self) { tag in
+                    Button { onTagClick?(tag) } label: { HortTagChip(text: tag) }
+                        .buttonStyle(.plain)
+                }
                 if memory.tags.count > 2 {
                     Text("+\(memory.tags.count - 2)")
                         .font(HortTypography.label(size: 9, weight: .medium))
@@ -185,7 +201,7 @@ struct MemoryCardView: View {
                 }
             } else if let app = memory.sourceApp {
                 Image(systemName: "app.dashed")
-                    .font(.system(size: 9))
+                    .font(HortTypography.label(size: 9))
                     .foregroundColor(onImage ? Color.white.opacity(0.9) : HortColors.textTertiary)
                 Text(app)
                     .font(HortTypography.label(size: 10, weight: .medium))
@@ -200,6 +216,57 @@ struct MemoryCardView: View {
         .clipped()
     }
 
+    // MARK: - Content display
+
+    @ViewBuilder
+    private var cardContent: some View {
+        if memory.type == .url, let content = memory.content, let url = URL(string: content) {
+            urlDisplay(url, raw: content)
+        } else {
+            titleBodyDisplay
+        }
+    }
+
+    @ViewBuilder
+    private var titleBodyDisplay: some View {
+        let text = displayText
+        let lines = text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(lines[0]))
+                .font(HortTypography.primary(weight: .semibold))
+                .foregroundColor(HortColors.textPrimary)
+                .lineLimit(1)
+            if lines.count > 1, !lines[1].isEmpty {
+                Text(String(lines[1]))
+                    .font(HortTypography.primary())
+                    .foregroundColor(HortColors.textSecondary)
+                    .lineSpacing(2)
+                    .lineLimit(5)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+    }
+
+    private func urlDisplay(_ url: URL, raw: String) -> some View {
+        VStack(alignment: .leading, spacing: HortSpacing.xs) {
+            HStack(spacing: HortSpacing.xs) {
+                Image(systemName: "arrow.up.right.square")
+                    .font(HortTypography.label(size: 10))
+                    .foregroundColor(HortColors.accent)
+                Text(url.host ?? raw)
+                    .font(HortTypography.primary(weight: .semibold))
+                    .foregroundColor(HortColors.textPrimary)
+                    .lineLimit(1)
+            }
+            if !url.path.isEmpty, url.path != "/" {
+                Text(url.path)
+                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                    .foregroundColor(HortColors.textTertiary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private var displayText: String {
@@ -207,8 +274,6 @@ struct MemoryCardView: View {
         return memory.type.rawValue.capitalized
     }
 
-    /// Prefers a generated thumbnail, then falls back to the underlying image or
-    /// screenshot file so previews show even before a thumbnail exists.
     private var imagePath: String? {
         if let thumb = memory.thumbnailPath, FileManager.default.fileExists(atPath: thumb) {
             return thumb
@@ -227,6 +292,29 @@ struct MemoryCardView: View {
         case .image: return "photo"
         case .screenshot: return "camera.viewfinder"
         case .file: return "doc"
+        }
+    }
+
+    private var iconTint: Color {
+        switch memory.type {
+        case .text:       return HortColors.accent
+        case .url:        return HortColors.info
+        case .image:      return HortColors.success
+        case .screenshot: return HortColors.warning
+        case .file:       return HortColors.textSecondary
+        }
+    }
+}
+
+final class ImageCache: @unchecked Sendable {
+    static let shared = ImageCache()
+    private var cache = NSCache<NSString, NSImage>()
+    private init() { cache.countLimit = 200 }
+    subscript(path: String) -> NSImage? {
+        get { cache.object(forKey: path as NSString) }
+        set {
+            if let img = newValue { cache.setObject(img, forKey: path as NSString) }
+            else { cache.removeObject(forKey: path as NSString) }
         }
     }
 }

@@ -91,8 +91,8 @@ class MemoryEngine: ObservableObject {
                 let rows = try Row.fetchAll(db, sql: "SELECT board, folder, tags FROM memoryObject WHERE isArchived = 0")
                 var boardCounts: [String: Int] = [:]
                 var folderCounts: [String: Int] = [:]
-                var allTags: Set<String> = []
                 
+                var tagCounts: [String: Int] = [:]
                 for row in rows {
                     if let board: String = row["board"] {
                         boardCounts[board, default: 0] += 1
@@ -102,10 +102,14 @@ class MemoryEngine: ObservableObject {
                         }
                     }
                     if let tagsJSON: String = row["tags"], let data = tagsJSON.data(using: .utf8), let tags = try? JSONDecoder().decode([String].self, from: data) {
-                        for tag in tags { allTags.insert(tag) }
+                        for tag in tags { tagCounts[tag, default: 0] += 1 }
                     }
                 }
-                return (inbox, all, favorites, archive, boardCounts, folderCounts, Array(allTags).sorted())
+                let filtered = tagCounts
+                    .filter { $0.value >= 2 && !Self.isJunkTag($0.key) }
+                    .map(\.key)
+                    .sorted()
+                return (inbox, all, favorites, archive, boardCounts, folderCounts, filtered)
             }
         } catch {
             print("Error fetching sidebar data: \(error)")
@@ -278,6 +282,69 @@ class MemoryEngine: ObservableObject {
         } catch {
             print("Error updating memories: \(error)")
         }
+    }
+
+    /// Renames a tag across all memories that have it.
+    func renameTag(_ old: String, to new: String) {
+        let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty, trimmed != old else { return }
+        do {
+            try self.dbQueue.write { db in
+                var all = try MemoryObject.fetchAll(db)
+                for i in all.indices where all[i].tags.contains(old) {
+                    all[i].tags = all[i].tags.map { $0 == old ? trimmed : $0 }
+                    if Set(all[i].tags).count < all[i].tags.count {
+                        all[i].tags = Array(NSOrderedSet(array: all[i].tags)) as? [String] ?? all[i].tags
+                    }
+                    all[i].updatedAt = Date()
+                    try all[i].save(db)
+                }
+            }
+            fetchRecent()
+        } catch {
+            print("Error renaming tag: \(error)")
+        }
+    }
+
+    /// Removes a tag from every memory that has it.
+    func deleteTag(_ tag: String) {
+        do {
+            try self.dbQueue.write { db in
+                var all = try MemoryObject.fetchAll(db)
+                for i in all.indices where all[i].tags.contains(tag) {
+                    all[i].tags.removeAll { $0 == tag }
+                    all[i].updatedAt = Date()
+                    try all[i].save(db)
+                }
+            }
+            fetchRecent()
+        } catch {
+            print("Error deleting tag: \(error)")
+        }
+    }
+
+    /// Tags that are purely numeric, date-like, single characters, or
+    /// measurement units are noise from AI analysis and clutter the sidebar.
+    /// Number+short-suffix tags that are meaningful keywords, not units/codes,
+    /// and should survive the junk filter below.
+    private static let numericTagWhitelist: Set<String> = [
+        "3d", "4k", "8k", "2fa", "5g", "4g", "3g", "1080p", "720p", "2d", "3ds", "ios", "y2k",
+    ]
+
+    static func isJunkTag(_ tag: String) -> Bool {
+        let t = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.count <= 1 { return true }
+        if numericTagWhitelist.contains(t.lowercased()) { return false }
+        if Double(t) != nil { return true }
+        let junkPatterns = [
+            #"^\d{1,4}[./-]\d{1,2}([./-]\d{2,4})?$"#,  // dates
+            #"^\d+(\.\d+)?\s?[a-z]{1,3}$"#,            // number + short unit suffix (250ml, 12b, 10kg, 30px)
+            #"^\d{4}$"#,                                 // bare years
+        ]
+        for pattern in junkPatterns {
+            if t.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil { return true }
+        }
+        return false
     }
 
     // MARK: - Search

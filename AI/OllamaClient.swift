@@ -17,14 +17,16 @@ struct OllamaGenerateRequest: Codable {
     let prompt: String
     let stream: Bool
     var options: OllamaOptions? = nil
+    var images: [String]? = nil
 
-    enum CodingKeys: String, CodingKey { case model, prompt, stream, options }
+    enum CodingKeys: String, CodingKey { case model, prompt, stream, options, images }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(model, forKey: .model)
         try c.encode(prompt, forKey: .prompt)
         try c.encode(stream, forKey: .stream)
         try c.encodeIfPresent(options, forKey: .options)
+        try c.encodeIfPresent(images, forKey: .images)
     }
 }
 
@@ -175,6 +177,51 @@ class OllamaClient {
         }
     }
     
+    func analyzeImage(imagePath: String, model: String, onUpdate: @escaping ((summary: String, tags: [String], done: Bool)) -> Void) async throws {
+        guard let imageData = FileManager.default.contents(atPath: imagePath) else {
+            throw URLError(.fileDoesNotExist)
+        }
+        let base64 = imageData.base64EncodedString()
+        let url = baseURL.appendingPathComponent("api/generate")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 120.0
+
+        let prompt = """
+        Describe this image concisely. Then suggest up to 5 lowercase keyword tags.
+        Return in this format:
+        Summary: <one or two short sentences>
+        Tags: <comma-separated lowercase tags>
+        """
+
+        let payload = OllamaGenerateRequest(model: model, prompt: prompt, stream: true,
+                                            options: OllamaOptions(temperature: 0.1),
+                                            images: [base64])
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (result, response) = try await URLSession.shared.bytes(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+
+        var rawString = ""
+        var finished = false
+        for try await line in result.lines {
+            guard let data = line.data(using: .utf8) else { continue }
+            if let decoded = try? JSONDecoder().decode(OllamaGenerateResponse.self, from: data) {
+                rawString += decoded.response
+                let parsed = parseAnalysis(rawString)
+                onUpdate((parsed.summary, parsed.tags, decoded.done))
+                if decoded.done { finished = true; break }
+            }
+        }
+        if !finished {
+            let parsed = parseAnalysis(rawString)
+            onUpdate((parsed.summary, parsed.tags, true))
+        }
+    }
+
     /// Parses the structured string response from Ollama.
     private func parseAnalysis(_ rawResponse: String) -> (summary: String, tags: [String]) {
         // Clean out common formatting like markdown asterisks

@@ -14,7 +14,7 @@ struct SelectableText: NSViewRepresentable {
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = false
-        textView.textColor = NSColor(Theme.Colors.textPrimary)
+        textView.textColor = NSColor(HortColors.textPrimary)
         textView.font = .systemFont(ofSize: 12)
         textView.textContainerInset = NSSize(width: 0, height: 0)
         textView.appearance = NSAppearance(named: .darkAqua)
@@ -30,7 +30,7 @@ struct SelectableText: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView, textView.string != text else { return }
         textView.string = text
-        textView.textColor = NSColor(Theme.Colors.textPrimary)
+        textView.textColor = NSColor(HortColors.textPrimary)
     }
 }
 

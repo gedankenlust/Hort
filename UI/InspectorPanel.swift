@@ -12,6 +12,8 @@ struct InspectorPanel: View {
     @State private var analyzing = false
     @State private var streamingSummary = ""
     @State private var aiError: String? = nil
+    @State private var synthesisResult: String? = nil
+    @State private var synthesizing = false
 
     var body: some View {
         Group {
@@ -32,6 +34,8 @@ struct InspectorPanel: View {
             } else {
                 memory = nil
             }
+            synthesisResult = nil
+            synthesizing = false
         }
         .onChange(of: engine.dataVersion) { _, _ in
             if selectedMemories.count == 1, let id = selectedMemories.first {
@@ -47,7 +51,7 @@ struct InspectorPanel: View {
                 // Header
                 HStack(spacing: HortSpacing.md) {
                     Image(systemName: iconName(for: memory.type))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(HortTypography.label(size: 14))
                         .foregroundColor(HortColors.accent)
                         .frame(width: 32, height: 32)
                         .background(HortColors.accentSoft)
@@ -63,7 +67,7 @@ struct InspectorPanel: View {
                     Spacer()
                     Button(action: { toggleFavorite(memory) }) {
                         Image(systemName: memory.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 14))
+                            .font(HortTypography.label(size: 14))
                             .foregroundColor(memory.isFavorite ? HortColors.accent : HortColors.textTertiary)
                     }
                     .buttonStyle(.plain)
@@ -149,8 +153,10 @@ struct InspectorPanel: View {
                         HortButton(title: LocalizedStringKey("inspector.delete"),
                                    icon: "trash",
                                    style: .destructive) {
+                            let deleted = memory
                             engine.delete(memory)
                             selectedMemories.removeAll()
+                            AppState.shared.stashForUndo([deleted])
                         }
                     }
                     if let url = exportedURL {
@@ -180,19 +186,26 @@ struct InspectorPanel: View {
     }
 
     private func runAIAnalysis(for memory: MemoryObject) {
-        guard let content = memory.content, !content.isEmpty else { return }
         analyzing = true
         streamingSummary = ""
         aiError = nil
 
+        let isImage = memory.type == .image || memory.type == .screenshot
+        let imagePath = isImage ? (memory.content ?? memory.thumbnailPath) : nil
+        let textContent = isImage ? memory.metadata["ocrText"] : memory.content
+
+        guard (imagePath != nil && FileManager.default.fileExists(atPath: imagePath ?? ""))
+              || (textContent != nil && !textContent!.isEmpty) else {
+            analyzing = false
+            return
+        }
+
         Task {
             do {
                 let model = settings.aiModel
-                try await OllamaClient.shared.analyze(content: content, model: model) { result in
+                let handler: ((summary: String, tags: [String], done: Bool)) -> Void = { result in
                     DispatchQueue.main.async {
                         guard result.done else {
-                            // Stream the summary live for feedback, but don't
-                            // persist yet — tags are still half-parsed.
                             streamingSummary = result.summary
                             return
                         }
@@ -203,6 +216,11 @@ struct InspectorPanel: View {
                         }
                         self.memory = engine.update(updatedMemory) { _ in }
                     }
+                }
+                if let path = imagePath, FileManager.default.fileExists(atPath: path) {
+                    try await OllamaClient.shared.analyzeImage(imagePath: path, model: model, onUpdate: handler)
+                } else if let content = textContent {
+                    try await OllamaClient.shared.analyze(content: content, model: model, onUpdate: handler)
                 }
                 await MainActor.run {
                     analyzing = false
@@ -221,7 +239,7 @@ struct InspectorPanel: View {
     private var multiSelectState: some View {
         VStack(spacing: HortSpacing.xl) {
             Image(systemName: "square.on.square.dashed")
-                .font(.system(size: 32))
+                .font(.system(size: 32, weight: .light))
                 .foregroundColor(HortColors.textTertiary)
 
             Text("\(selectedMemories.count) " + L("inspector.selected"))
@@ -238,9 +256,9 @@ struct InspectorPanel: View {
                         Button(board.name) { moveSelected(toBoard: board.name) }
                     }
                 } label: {
-                    HStack(spacing: 9) {
-                        Image(systemName: "tray.full").font(.system(size: 12)).frame(width: 16)
-                        Text("inspector.move_to_board").font(.system(size: 12, weight: .medium))
+                    HStack(spacing: HortSpacing.sm) {
+                        Image(systemName: "tray.full").font(HortTypography.primary(size: 12)).frame(width: 16)
+                        Text("inspector.move_to_board").font(HortTypography.label(size: 12))
                         Spacer()
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
                     }
@@ -281,11 +299,46 @@ struct InspectorPanel: View {
                         selectedMemories.removeAll()
                     }
                 }
+                if settings.aiEnabled {
+                    if synthesizing {
+                        HStack(spacing: HortSpacing.sm) {
+                            ProgressView().controlSize(.small)
+                            Text(L("inspector.synthesizing"))
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
+                        }
+                    } else if let result = synthesisResult {
+                        VStack(alignment: .leading, spacing: HortSpacing.sm) {
+                            HortSectionHeader(title: LocalizedStringKey("inspector.synthesis"))
+                            Text(result)
+                                .font(HortTypography.primary(size: HortTypography.Size.caption))
+                                .lineSpacing(3)
+                                .foregroundColor(HortColors.accent)
+                                .padding(HortSpacing.md)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(HortColors.accentSoft)
+                                .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                            HortButton(title: LocalizedStringKey("inspector.copy"),
+                                       icon: "doc.on.doc",
+                                       style: .secondary) {
+                                ClipboardMonitor.shared.writeWithoutCapture(result)
+                            }
+                        }
+                    } else {
+                        HortButton(title: LocalizedStringKey("inspector.synthesize"),
+                                   icon: "sparkles",
+                                   style: .secondary) {
+                            synthesizeSelected()
+                        }
+                    }
+                }
                 HortButton(title: LocalizedStringKey("inspector.delete_all"),
                            icon: "trash",
                            style: .destructive) {
+                    let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
                     engine.delete(ids: selectedMemories)
                     selectedMemories.removeAll()
+                    AppState.shared.stashForUndo(objects)
                 }
                 HortButton(title: LocalizedStringKey("inspector.clear_selection"),
                            icon: "xmark.circle",
@@ -338,7 +391,7 @@ struct InspectorPanel: View {
                     .aspectRatio(contentMode: .fill)
             } else {
                 Image(systemName: iconName(for: memory.type))
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(HortTypography.label(size: 14))
                     .foregroundColor(HortColors.accent)
             }
         }
@@ -446,6 +499,40 @@ struct InspectorPanel: View {
         }
     }
 
+    private func synthesizeSelected() {
+        let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
+        guard !objects.isEmpty else { return }
+        synthesizing = true
+        synthesisResult = nil
+        let combined = objects.enumerated().map { i, obj in
+            let text = obj.content ?? obj.metadata["ocrText"] ?? ""
+            return "[\(i+1)] \(obj.type.rawValue): \(String(text.prefix(500)))"
+        }.joined(separator: "\n\n")
+        Task {
+            do {
+                let model = settings.aiModel
+                try await OllamaClient.shared.analyze(
+                    content: "Synthesize and summarize these \(objects.count) items:\n\n\(combined)",
+                    model: model
+                ) { chunk in
+                    DispatchQueue.main.async {
+                        if chunk.done {
+                            synthesisResult = chunk.summary
+                            synthesizing = false
+                        } else {
+                            synthesisResult = chunk.summary
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    synthesisResult = "Error: \(error.localizedDescription)"
+                    synthesizing = false
+                }
+            }
+        }
+    }
+
     private func toggleFavorite(_ memory: MemoryObject) {
         let updated = engine.update(memory) { $0.isFavorite.toggle() }
         self.memory = updated
@@ -470,7 +557,7 @@ struct InspectorPanel: View {
             trailingView: AnyView(
                 Button(action: { addTag(to: memory) }) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 13))
+                        .font(HortTypography.primary(size: 13))
                         .foregroundColor(HortColors.accent)
                 }
                 .buttonStyle(.plain)

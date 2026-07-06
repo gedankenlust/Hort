@@ -85,7 +85,7 @@ class CaptureEngine: ObservableObject {
                         MemoryEngine.shared.update(id: objectID) { mut in
                             mut.metadata["ocrText"] = ocrText
                         }
-                        self.autopilotAnalyze(objectID: objectID, content: ocrText, settings: settings)
+                        self.autopilotAnalyze(objectID: objectID, content: ocrText, settings: settings, imagePath: contentPath)
                         self.enqueueEmbedding(objectID)
                     }
                 }
@@ -111,13 +111,13 @@ class CaptureEngine: ObservableObject {
     /// "Analyze" in the Inspector is unaffected.
     private static let autopilotMinChars = 20
 
-    private func autopilotAnalyze(objectID: UUID, content: String, settings: SettingsStore) {
+    private func autopilotAnalyze(objectID: UUID, content: String, settings: SettingsStore, imagePath: String? = nil) {
         guard settings.aiEnabled, settings.aiAutopilot else { return }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= Self.autopilotMinChars else { return }
+        guard trimmed.count >= Self.autopilotMinChars || imagePath != nil else { return }
         let model = settings.aiModel
         Task { @MainActor in
-            AIRuntime.shared.enqueueAutopilot(objectID: objectID, content: trimmed, model: model)
+            AIRuntime.shared.enqueueAutopilot(objectID: objectID, content: trimmed, model: model, imagePath: imagePath)
         }
     }
 }

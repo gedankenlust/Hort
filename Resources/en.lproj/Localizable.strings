@@ -14,6 +14,9 @@
 "sidebar.new_folder" = "Add folder";
 "sidebar.remove_folder" = "Remove folder";
 "sidebar.add_folder_msg" = "Enter a name for the new folder in '%@'.";
+"sidebar.rename_tag" = "Rename tag";
+"sidebar.rename_tag_msg" = "Enter a new name for this tag.";
+"sidebar.delete_tag" = "Remove tag globally";
 
 /* Settings */
 "settings.title" = "Settings";
@@ -85,6 +88,9 @@
 "inspector.clear_selection" = "Clear selection";
 "inspector.analysis_error" = "Error: %@";
 "inspector.and_more" = "and %d more";
+"inspector.synthesize" = "Summarize selected";
+"inspector.synthesis" = "Summary";
+"inspector.synthesizing" = "Summarizing...";
 
 /* Dashboard */
 "dashboard.search" = "Search";
@@ -113,6 +119,11 @@
 "dashboard.export_failed" = "Export failed";
 "dashboard.image_asset" = "Image Asset";
 "dashboard.clear_search" = "Clear Search";
+"dashboard.list_view" = "List view";
+"dashboard.grid_view" = "Grid view";
+"dashboard.archive_old" = "Archive old items";
+"dashboard.archive_week" = "Archive older than 7 days";
+"dashboard.archive_month" = "Archive older than 30 days";
 
 /* Onboarding */
 "onboarding.status" = "Ready";
@@ -137,6 +148,10 @@
 "ask.no_results" = "Nothing relevant found in your memories yet.";
 "ask.hint_title" = "Ask anything about what you've saved.";
 "ask.hint_body" = "Answers come only from your captures, with sources. Fully local.";
+
+/* Toast */
+"toast.deleted" = "Deleted";
+"toast.undo" = "Undo";
 
 /* Common */
 "common.cancel" = "Cancel";

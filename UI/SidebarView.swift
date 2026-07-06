@@ -19,6 +19,8 @@ struct SidebarView: View {
     @State private var folderAlertBoard: String? = nil
     @State private var newFolderName = ""
 
+    @State private var renamingTag: String?
+    @State private var renameTagText = ""
     @State private var inboxCount = 0
     @State private var allCount = 0
     @State private var favoritesCount = 0
@@ -73,6 +75,14 @@ struct SidebarView: View {
                                         dropHandler: { id in
                                             apply(id) { if !$0.tags.contains(tag) { $0.tags.append(tag) } }
                                         })
+                                .contextMenu {
+                                    Button { startRenamingTag(tag) } label: {
+                                        Label("sidebar.rename_tag", systemImage: "pencil")
+                                    }
+                                    Button(role: .destructive) { deleteTagGlobally(tag) } label: {
+                                        Label("sidebar.delete_tag", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                     .padding(.horizontal, HortSpacing.sm)
@@ -353,6 +363,32 @@ struct SidebarView: View {
         renameText = ""
     }
 
+    private func startRenamingTag(_ tag: String) {
+        renamingTag = tag
+        renameTagText = tag
+        let alert = NSAlert()
+        alert.messageText = L("sidebar.rename_tag")
+        alert.informativeText = L("sidebar.rename_tag_msg")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.stringValue = tag
+        alert.accessoryView = input
+        alert.addButton(withTitle: L("common.ok"))
+        alert.addButton(withTitle: L("common.cancel"))
+        if alert.runModal() == .alertFirstButtonReturn {
+            let newName = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !newName.isEmpty, newName != tag {
+                engine.renameTag(tag, to: newName)
+                if selection == .tag(tag) { selection = .tag(newName) }
+            }
+        }
+        renamingTag = nil
+    }
+
+    private func deleteTagGlobally(_ tag: String) {
+        engine.deleteTag(tag)
+        if selection == .tag(tag) { selection = .all }
+    }
+
     /// Resolves dragged memory ids (one per line — a multi-selection drag sends
     /// all selected ids) and applies the mutation to each. Returns whether any
     /// matched.
@@ -473,7 +509,7 @@ struct StatusIndicator: View {
                     .fill(tint)
                     .frame(width: 7, height: 7)
                     .shadow(color: tint.opacity(0.8), radius: 4)
-                Text(LocalizedStringKey(statusKey))
+                Text(L(statusKey))
                     .font(HortTypography.primary(size: HortTypography.Size.caption, weight: .medium))
                     .foregroundColor(tint)
                 Spacer(minLength: 0)
@@ -494,7 +530,7 @@ struct StatusIndicator: View {
         }
         .buttonStyle(.plain)
         .help(capture.isCapturing ? "Pause capture" : "Resume capture")
-        .accessibilityLabel(LocalizedStringKey(statusKey))
+        .accessibilityLabel(L(statusKey))
     }
 }
 

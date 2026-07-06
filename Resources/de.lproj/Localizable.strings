@@ -7,13 +7,16 @@
 "sidebar.tags" = "Tags";
 "sidebar.new_board" = "Neues Board";
 "sidebar.board_name_placeholder" = "Board-Name…";
-"sidebar.system_live" = "System Aktiv";
-"sidebar.capture_paused" = "Erfassung Pausiert";
+"sidebar.system_live" = "System aktiv";
+"sidebar.capture_paused" = "Erfassung pausiert";
 "sidebar.rename_board" = "Board umbenennen";
 "sidebar.remove_board" = "Board löschen";
 "sidebar.new_folder" = "Ordner hinzufügen";
 "sidebar.remove_folder" = "Ordner löschen";
 "sidebar.add_folder_msg" = "Gib einen Namen für den neuen Unterordner in '%@' ein.";
+"sidebar.rename_tag" = "Tag umbenennen";
+"sidebar.rename_tag_msg" = "Gib einen neuen Namen für diesen Tag ein.";
+"sidebar.delete_tag" = "Tag global entfernen";
 
 /* Settings */
 "settings.title" = "Einstellungen";
@@ -85,6 +88,9 @@
 "inspector.clear_selection" = "Auswahl aufheben";
 "inspector.analysis_error" = "Fehler: %@";
 "inspector.and_more" = "und %d weitere";
+"inspector.synthesize" = "Auswahl zusammenfassen";
+"inspector.synthesis" = "Zusammenfassung";
+"inspector.synthesizing" = "Zusammenfassung wird erstellt...";
 
 /* Dashboard */
 "dashboard.search" = "Suche";
@@ -113,6 +119,11 @@
 "dashboard.export_failed" = "Export fehlgeschlagen";
 "dashboard.image_asset" = "Bild-Datei";
 "dashboard.clear_search" = "Suche leeren";
+"dashboard.list_view" = "Listenansicht";
+"dashboard.grid_view" = "Kachelansicht";
+"dashboard.archive_old" = "Alte Einträge archivieren";
+"dashboard.archive_week" = "Älter als 7 Tage archivieren";
+"dashboard.archive_month" = "Älter als 30 Tage archivieren";
 
 /* Onboarding */
 "onboarding.status" = "Bereit";
@@ -137,6 +148,10 @@
 "ask.no_results" = "Noch nichts Passendes in deinen Erinnerungen gefunden.";
 "ask.hint_title" = "Frag alles über das, was du gespeichert hast.";
 "ask.hint_body" = "Antworten kommen nur aus deinen Captures, mit Quellen. Komplett lokal.";
+
+/* Toast */
+"toast.deleted" = "Gelöscht";
+"toast.undo" = "Rückgängig";
 
 /* Common */
 "common.cancel" = "Abbrechen";

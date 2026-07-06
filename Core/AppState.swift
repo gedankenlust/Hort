@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 import Combine
 
 /// Shared navigation and selection state, so menu commands (defined at the App
@@ -12,13 +12,15 @@ final class AppState: ObservableObject {
     @Published var selectedMemories: Set<UUID> = []
     @Published var showingSettings = false
     @Published var showingAsk = false
-    /// True while a selectable text field in the inspector has keyboard focus,
-    /// so the feed's ⌘A (select all cards) yields to text select-all.
     @Published var inspectorTextFocused = false
+    @Published var undoToastVisible = false
 
     @Published private(set) var focusSearchToken = 0
     @Published private(set) var exportToken = 0
     @Published private(set) var selectAllToken = 0
+
+    private var lastDeleted: [MemoryObject] = []
+    private var undoDismissWork: DispatchWorkItem?
 
     private init() {}
 
@@ -47,7 +49,34 @@ final class AppState: ObservableObject {
 
     func deleteSelected() {
         guard !selectedMemories.isEmpty else { return }
+        let objects = selectedMemories.compactMap { MemoryEngine.shared.fetch(id: $0) }
         MemoryEngine.shared.delete(ids: selectedMemories)
         selectedMemories.removeAll()
+        stashForUndo(objects)
+    }
+
+    func stashForUndo(_ objects: [MemoryObject]) {
+        lastDeleted = objects
+        undoDismissWork?.cancel()
+        withAnimation { undoToastVisible = true }
+        let work = DispatchWorkItem { [weak self] in
+            self?.dismissUndo()
+        }
+        undoDismissWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+    }
+
+    func undoDelete() {
+        for object in lastDeleted {
+            MemoryEngine.shared.save(object)
+        }
+        lastDeleted.removeAll()
+        dismissUndo()
+    }
+
+    func dismissUndo() {
+        undoDismissWork?.cancel()
+        lastDeleted.removeAll()
+        withAnimation { undoToastVisible = false }
     }
 }

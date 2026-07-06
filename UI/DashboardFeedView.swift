@@ -2,6 +2,10 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+enum FeedViewMode: String {
+    case grid, list
+}
+
 struct DashboardFeedView: View {
     let selection: SidebarSelection
     @Binding var selectedMemories: Set<UUID>
@@ -16,8 +20,9 @@ struct DashboardFeedView: View {
     @State private var memories: [MemoryObject] = []
     /// Anchor for ⇧-click range selection (the last plain/⌘ click).
     @State private var selectionAnchor: UUID?
-    /// Debounces the (possibly Ollama-backed) search while typing.
     @State private var searchTask: Task<Void, Never>?
+    @AppStorage("feedViewMode") private var viewMode: FeedViewMode = .grid
+    @State private var newCardIDs: Set<UUID> = []
 
     // Flexible columns: as many as fit at the minimum width, each stretching to
     // fill the remaining space so cards expand/contract with the column width.
@@ -46,7 +51,7 @@ struct DashboardFeedView: View {
                             Text("\(selectedMemories.count) " + L("dashboard.selected"))
                                 .font(HortTypography.label(size: 11))
                                 .monospacedDigit()
-                            Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                            Image(systemName: "xmark").font(HortTypography.label(size: 9))
                         }
                         .foregroundColor(HortColors.accent)
                         .padding(.horizontal, HortSpacing.sm)
@@ -66,6 +71,26 @@ struct DashboardFeedView: View {
                         .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
                         .foregroundColor(HortColors.textTertiary)
                         .lineLimit(1)
+                }
+                if selection == .inbox, memories.count > 10 {
+                    Menu {
+                        Button { archiveOlderThan(days: 7) } label: {
+                            Label(L("dashboard.archive_week"), systemImage: "archivebox")
+                        }
+                        Button { archiveOlderThan(days: 30) } label: {
+                            Label(L("dashboard.archive_month"), systemImage: "archivebox")
+                        }
+                    } label: {
+                        HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {}
+                    }
+                }
+                HortIconButton(
+                    icon: viewMode == .grid ? "list.bullet" : "square.grid.2x2",
+                    help: viewMode == .grid ? "dashboard.list_view" : "dashboard.grid_view"
+                ) {
+                    withAnimation(.easeOut(duration: HortAnimation.fast)) {
+                        viewMode = viewMode == .grid ? .list : .grid
+                    }
                 }
                 if settings.semanticEnabled {
                     HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
@@ -95,7 +120,7 @@ struct DashboardFeedView: View {
                             .frame(maxWidth: .infinity, minHeight: 420)
                     } else if memories.isEmpty {
                         emptyState
-                    } else {
+                    } else if viewMode == .grid {
                         LazyVGrid(columns: columns, alignment: .leading,
                                   spacing: HortSizing.cardSpacing) {
                             ForEach(memories) { memory in
@@ -103,6 +128,13 @@ struct DashboardFeedView: View {
                             }
                         }
                         .padding(HortSpacing.xxl)
+                    } else {
+                        LazyVStack(spacing: 1) {
+                            ForEach(memories) { memory in
+                                listRow(for: memory)
+                            }
+                        }
+                        .padding(.vertical, HortSpacing.md)
                     }
                 }
             }
@@ -119,6 +151,7 @@ struct DashboardFeedView: View {
             selectAllVisible()
         }
         .background(selectAllShortcut)
+        .background(quickLookShortcut)
         .onAppear {
             refreshMemories()
         }
@@ -145,6 +178,7 @@ struct DashboardFeedView: View {
     private func card(for memory: MemoryObject) -> some View {
         MemoryCardView(memory: memory,
                        isSelected: selectedMemories.contains(memory.id),
+                       boardColor: boardColor(for: memory),
                        onCopy: { copyToClipboard(memory) },
                        onFavorite: { engine.update(id: memory.id) { $0.isFavorite.toggle() } },
                        onArchive: {
@@ -154,7 +188,16 @@ struct DashboardFeedView: View {
                        onDelete: {
                            engine.delete(memory)
                            selectedMemories.remove(memory.id)
-                       })
+                           app.stashForUndo([memory])
+                       },
+                       onTagClick: { tag in app.selection = .tag(tag) })
+            .overlay(
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
+                    .stroke(HortColors.accent, lineWidth: newCardIDs.contains(memory.id) ? 1.5 : 0)
+                    .shadow(color: HortColors.accent.opacity(newCardIDs.contains(memory.id) ? 0.5 : 0), radius: 8)
+                    .allowsHitTesting(false)
+            )
+            .onTapGesture(count: 2) { openQuickLook(memory) }
             .onTapGesture { handleSelection(of: memory) }
             .draggable(dragPayload(for: memory)) {
                 dragPreview(for: memory)
@@ -235,7 +278,7 @@ struct DashboardFeedView: View {
                 trailingView: AnyView(
                     Button(action: closeSearch) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13))
+                            .font(HortTypography.primary(size: 13))
                             .foregroundColor(HortColors.textTertiary)
                     }
                     .buttonStyle(.plain)
@@ -300,7 +343,16 @@ struct DashboardFeedView: View {
                 }
             }
         } else {
-            memories = engine.fetchMemories(for: selection)
+            let old = Set(memories.map(\.id))
+            let fresh = engine.fetchMemories(for: selection)
+            let arrived = Set(fresh.map(\.id)).subtracting(old)
+            memories = fresh
+            if !arrived.isEmpty, !old.isEmpty {
+                newCardIDs.formUnion(arrived)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation(.easeOut(duration: 0.6)) { newCardIDs.subtract(arrived) }
+                }
+            }
         }
     }
 
@@ -372,7 +424,7 @@ struct DashboardFeedView: View {
         if selectedMemories.contains(memory.id), selectedMemories.count > 1 {
             HStack(spacing: HortSpacing.sm) {
                 Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(HortTypography.label(size: 11))
                     .foregroundColor(HortColors.accent)
                 Text("\(selectedMemories.count) " + L("dashboard.selected"))
                     .font(HortTypography.label(size: 11))
@@ -395,7 +447,7 @@ struct DashboardFeedView: View {
     private func singleDragPreview(for memory: MemoryObject) -> some View {
         HStack(spacing: HortSpacing.sm) {
             Image(systemName: iconName(for: memory.type))
-                .font(.system(size: 10, weight: .semibold))
+                .font(HortTypography.label(size: 10))
                 .foregroundColor(HortColors.accent)
                 .frame(width: 18, height: 18)
                 .background(HortColors.accentSoft)
@@ -424,6 +476,86 @@ struct DashboardFeedView: View {
         )
     }
 
+    // MARK: - Inbox triage
+
+    private func archiveOlderThan(days: Int) {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let old = memories.filter { $0.createdAt < cutoff }
+        guard !old.isEmpty else { return }
+        let ids = old.map(\.id)
+        engine.update(ids: ids) { $0.isArchived = true }
+    }
+
+    // MARK: - List view
+
+    private func listRow(for memory: MemoryObject) -> some View {
+        let selected = selectedMemories.contains(memory.id)
+        return HStack(spacing: HortSpacing.md) {
+            Image(systemName: iconName(for: memory.type))
+                .font(HortTypography.label(size: 11))
+                .foregroundColor(listIconTint(memory.type))
+                .frame(width: 22)
+            if let color = boardColor(for: memory) {
+                Circle().fill(color).frame(width: 7, height: 7)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(listTitle(memory))
+                    .font(HortTypography.primary(weight: .medium))
+                    .foregroundColor(HortColors.textPrimary)
+                    .lineLimit(1)
+                if !memory.tags.isEmpty {
+                    Text(memory.tags.prefix(3).joined(separator: ", "))
+                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+            if memory.isFavorite {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(HortColors.accent)
+            }
+            Text(memory.createdAt, style: .time)
+                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                .monospacedDigit()
+                .foregroundColor(HortColors.textTertiary)
+        }
+        .padding(.horizontal, HortSpacing.xxl)
+        .padding(.vertical, HortSpacing.sm)
+        .background(selected ? HortColors.accentSoft.opacity(0.35) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { openQuickLook(memory) }
+        .onTapGesture { handleSelection(of: memory) }
+        .draggable(dragPayload(for: memory)) { singleDragPreview(for: memory) }
+    }
+
+    private func listTitle(_ memory: MemoryObject) -> String {
+        if memory.type == .url, let content = memory.content, let url = URL(string: content) {
+            return url.host ?? content
+        }
+        if let content = memory.content, !content.isEmpty {
+            return String(content.prefix(80)).components(separatedBy: .newlines).first ?? content
+        }
+        return memory.type.rawValue.capitalized
+    }
+
+    private func listIconTint(_ type: MemoryType) -> Color {
+        switch type {
+        case .text:       return HortColors.accent
+        case .url:        return HortColors.info
+        case .image:      return HortColors.success
+        case .screenshot: return HortColors.warning
+        case .file:       return HortColors.textSecondary
+        }
+    }
+
+    private func boardColor(for memory: MemoryObject) -> Color? {
+        guard let boardName = memory.board else { return nil }
+        return settings.boards.first(where: { $0.name == boardName })?
+            .colorHex.flatMap { Color(hexString: $0) }
+    }
+
     private func iconName(for type: MemoryType) -> String {
         switch type {
         case .text: return "text.alignleft"
@@ -432,5 +564,36 @@ struct DashboardFeedView: View {
         case .screenshot: return "camera.viewfinder"
         case .file: return "doc"
         }
+    }
+
+    // MARK: - Quick Look
+
+    private var quickLookShortcut: some View {
+        Button(action: { quickLookSelected() }) { }
+            .keyboardShortcut(.space, modifiers: [])
+            .disabled(app.inspectorTextFocused)
+            .opacity(0)
+            .allowsHitTesting(false)
+    }
+
+    private func quickLookSelected() {
+        guard selectedMemories.count == 1, let id = selectedMemories.first,
+              let memory = engine.fetch(id: id) else { return }
+        openQuickLook(memory)
+    }
+
+    private func openQuickLook(_ memory: MemoryObject) {
+        if memory.type == .url, let content = memory.content, let url = URL(string: content) {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        var fileURL: URL?
+        if let path = memory.thumbnailPath, FileManager.default.fileExists(atPath: path) {
+            fileURL = URL(fileURLWithPath: path)
+        } else if let content = memory.content, FileManager.default.fileExists(atPath: content) {
+            fileURL = URL(fileURLWithPath: content)
+        }
+        guard let url = fileURL else { return }
+        NSWorkspace.shared.open(url)
     }
 }

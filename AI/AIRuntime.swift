@@ -26,41 +26,60 @@ final class AIRuntime: ObservableObject {
 
     /// Queues an Autopilot analysis for the given memory. Returns immediately;
     /// the work runs in order behind any analysis already queued or running.
-    func enqueueAutopilot(objectID: UUID, content: String, model: String) {
-        guard !content.isEmpty else { return }
+    func enqueueAutopilot(objectID: UUID, content: String, model: String, imagePath: String? = nil) {
+        guard !content.isEmpty || imagePath != nil else { return }
         queuedCount += 1
         let previous = tail
         tail = Task { [weak self] in
             await previous.value
-            await self?.run(objectID: objectID, content: content, model: model)
+            await self?.run(objectID: objectID, content: content, model: model, imagePath: imagePath)
         }
     }
 
-    private func run(objectID: UUID, content: String, model: String) async {
+    private func run(objectID: UUID, content: String, model: String, imagePath: String? = nil) async {
         queuedCount -= 1
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        do {
-            try await OllamaClient.shared.analyze(content: content, model: model) { result in
-                // Persist once, when streaming completes — mid-stream tags are
-                // half-parsed and would leak fragments into the tag list.
-                guard result.done else { return }
-                DispatchQueue.main.async {
-                    MemoryEngine.shared.update(id: objectID) { mut in
-                        mut.metadata["aiSummary"] = result.summary
-                        for tag in result.tags where !mut.tags.contains(tag) {
-                            mut.tags.append(tag)
-                        }
+        let handler: ((summary: String, tags: [String], done: Bool)) -> Void = { result in
+            guard result.done else { return }
+            DispatchQueue.main.async {
+                MemoryEngine.shared.update(id: objectID) { mut in
+                    mut.metadata["aiSummary"] = result.summary
+                    for tag in result.tags where !mut.tags.contains(tag) {
+                        mut.tags.append(tag)
                     }
                 }
             }
+        }
+
+        do {
+            if let path = imagePath, FileManager.default.fileExists(atPath: path) {
+                try await OllamaClient.shared.analyzeImage(imagePath: path, model: model, onUpdate: handler)
+            } else {
+                try await OllamaClient.shared.analyze(content: content, model: model, onUpdate: handler)
+            }
             reachable = true
             lastError = nil
+            await reembed(objectID: objectID)
         } catch {
             reachable = false
             lastError = error.localizedDescription
             print("Autopilot AI analysis failed: \(error)")
+        }
+    }
+
+    private func reembed(objectID: UUID) async {
+        guard SettingsStore.shared.semanticEnabled,
+              let object = MemoryEngine.shared.fetch(id: objectID) else { return }
+        let text = MemoryEngine.shared.embeddingText(for: object)
+        guard !text.isEmpty else { return }
+        let embeddingModel = SettingsStore.shared.embeddingModel
+        do {
+            let vector = try await OllamaClient.shared.embed(text, model: embeddingModel)
+            MemoryEngine.shared.storeEmbedding(id: objectID, vector: vector, model: embeddingModel)
+        } catch {
+            print("Re-embedding after analysis failed: \(error)")
         }
     }
 
