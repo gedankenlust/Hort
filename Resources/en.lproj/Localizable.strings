@@ -31,6 +31,7 @@
 "settings.capture" = "Capture";
 "settings.capture.enabled" = "Enable background capture";
 "settings.menubar_icon" = "Show menu bar icon";
+"settings.launch_at_login" = "Launch at login";
 "settings.privacy" = "Privacy";
 "settings.privacy.ignore_passwords" = "Ignore password/concealed clipboard";
 "settings.privacy.ignore_passwords_desc" = "Skips items marked sensitive (e.g. password managers)";

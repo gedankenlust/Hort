@@ -153,6 +153,13 @@ struct SettingsView: View {
                 }
                 .toggleStyle(.switch)
                 .tint(HortColors.accent)
+
+                Toggle(isOn: $settings.launchAtLogin) {
+                    Text(LocalizedStringKey("settings.launch_at_login"))
+                        .foregroundColor(HortColors.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(HortColors.accent)
             }
 
             // Danger Zone

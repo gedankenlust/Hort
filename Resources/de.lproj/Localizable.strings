@@ -31,6 +31,7 @@
 "settings.capture" = "Erfassung";
 "settings.capture.enabled" = "Hintergrund-Erfassung aktivieren";
 "settings.menubar_icon" = "Menüleisten-Icon anzeigen";
+"settings.launch_at_login" = "Beim Anmelden starten";
 "settings.privacy" = "Datenschutz";
 "settings.privacy.ignore_passwords" = "Passwörter/Private Ablage ignorieren";
 "settings.privacy.ignore_passwords_desc" = "Überspringt als sensibel markierte Inhalte (z.B. Passwort-Manager)";

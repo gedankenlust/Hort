@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import ServiceManagement
 
 struct Board: Codable, Identifiable, Hashable {
     var id = UUID()
@@ -68,6 +69,25 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(language, forKey: Keys.language) }
     }
 
+    /// Whether Hort registers itself as a login item (macOS Login Items, via
+    /// SMAppService — not persisted in UserDefaults, the source of truth is
+    /// SMAppService's own registration state).
+    @Published var launchAtLogin: Bool {
+        didSet {
+            guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
+            do {
+                if launchAtLogin {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                print("Error toggling launch at login: \(error)")
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
+        }
+    }
+
     /// Seeded with common password managers so secrets are excluded out of the box.
     static let defaultExcludedBundleIDs: Set<String> = [
         "com.1password.1password",
@@ -123,6 +143,7 @@ final class SettingsStore: ObservableObject {
         aiAutopilot = defaults.object(forKey: Keys.aiAutopilot) as? Bool ?? false
         semanticEnabled = defaults.object(forKey: Keys.semanticEnabled) as? Bool ?? false
         embeddingModel = defaults.string(forKey: Keys.embeddingModel) ?? "nomic-embed-text:latest"
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     func addBoard(_ name: String) {
