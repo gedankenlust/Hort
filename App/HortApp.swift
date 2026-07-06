@@ -37,6 +37,13 @@ struct HortApp: App {
     
     @ObservedObject private var app = AppState.shared
     @ObservedObject private var settings = SettingsStore.shared
+    /// Deliberately a plain `@AppStorage`, not a `SettingsStore` property: binding
+    /// `MenuBarExtra(isInserted:)` straight to an `@Published` var on a class with
+    /// many other `@Published` properties caused a feedback loop (any settings
+    /// change re-evaluates this Scene, which re-touches the binding, which fires
+    /// `objectWillChange` again — pegging the CPU and eventually crashing).
+    /// `@AppStorage` only republishes for this one key, so it can't cascade.
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -89,7 +96,7 @@ struct HortApp: App {
             }
         }
 
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarContent()
         } label: {
             HortApp.menuBarIcon
@@ -159,7 +166,6 @@ struct MenuBarContent: View {
                                subtitle: Self.relativeFormatter.localizedString(for: memory.createdAt, relativeTo: Date())) {
                         showMainWindow()
                         app.reveal(memory.id)
-                        closeWindow()
                     }
                 }
             }
@@ -170,19 +176,17 @@ struct MenuBarContent: View {
                 MenuBarRow(icon: "sparkles", iconColor: HortColors.accent, title: L("ask.title")) {
                     showMainWindow()
                     app.showingAsk = true
-                    closeWindow()
                 }
             }
 
             MenuBarRow(icon: "gearshape", title: L("settings.title"), shortcut: "⌘,") {
                 showMainWindow()
                 app.showingSettings = true
-                closeWindow()
             }
 
             Divider().foregroundColor(HortColors.border)
 
-            MenuBarRow(icon: "power", title: L("common.done"), shortcut: "⌘Q", isDestructive: true) {
+            MenuBarRow(icon: "power", title: L("menubar.quit"), shortcut: "⌘Q", isDestructive: true) {
                 NSApp.terminate(nil)
             }
             .padding(.bottom, HortSpacing.xs)
@@ -249,19 +253,12 @@ struct MenuBarContent: View {
         }
     }
 
-    /// Dismisses the `.window`-style MenuBarExtra popover after a navigational
-    /// action, mirroring standard menu behaviour (it doesn't auto-close like
-    /// the native `.menu` style would).
-    private func closeWindow() {
-        DispatchQueue.main.async {
-            NSApp.keyWindow?.close()
-        }
-    }
-
     /// Brings the main window to front, reopening it via SwiftUI's WindowGroup
     /// if the user had closed it — `NSApp.activate` alone only raises the app,
     /// it doesn't recreate a closed window, so Ask/Settings would silently do
-    /// nothing when there's no window left to attach the sheet to.
+    /// nothing when there's no window left to attach the sheet to. Activating
+    /// the app also naturally dismisses this `.window`-style popover, since it
+    /// resigns key status once the main window takes focus.
     private func showMainWindow() {
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)

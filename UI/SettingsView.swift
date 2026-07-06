@@ -6,6 +6,11 @@ struct SettingsView: View {
     @ObservedObject private var capture = CaptureEngine.shared
     @ObservedObject private var indexer = EmbeddingIndexer.shared
     @Environment(\.dismiss) private var dismiss
+    /// Same UserDefaults key as `HortApp.showMenuBarIcon` — kept as a separate
+    /// `@AppStorage` rather than a `SettingsStore` property so toggling it can't
+    /// cascade through `SettingsStore`'s shared `objectWillChange` (see the note
+    /// on `HortApp.showMenuBarIcon`).
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     @State private var newBundleID = ""
     @State private var confirmClear = false
@@ -137,6 +142,13 @@ struct SettingsView: View {
                     set: { $0 ? capture.resume() : capture.pause() }
                 )) {
                     Text(LocalizedStringKey("settings.capture.enabled"))
+                        .foregroundColor(HortColors.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(HortColors.accent)
+
+                Toggle(isOn: $showMenuBarIcon) {
+                    Text(LocalizedStringKey("settings.menubar_icon"))
                         .foregroundColor(HortColors.textPrimary)
                 }
                 .toggleStyle(.switch)

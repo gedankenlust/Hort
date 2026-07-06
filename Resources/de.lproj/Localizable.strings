@@ -30,6 +30,7 @@
 "settings.language.de" = "Deutsch";
 "settings.capture" = "Erfassung";
 "settings.capture.enabled" = "Hintergrund-Erfassung aktivieren";
+"settings.menubar_icon" = "Menüleisten-Icon anzeigen";
 "settings.privacy" = "Datenschutz";
 "settings.privacy.ignore_passwords" = "Passwörter/Private Ablage ignorieren";
 "settings.privacy.ignore_passwords_desc" = "Überspringt als sensibel markierte Inhalte (z.B. Passwort-Manager)";
@@ -152,6 +153,9 @@
 /* Toast */
 "toast.deleted" = "Gelöscht";
 "toast.undo" = "Rückgängig";
+
+/* Menu bar */
+"menubar.quit" = "Beenden";
 
 /* Common */
 "common.cancel" = "Abbrechen";
