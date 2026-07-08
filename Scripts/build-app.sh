@@ -32,8 +32,9 @@ if [ -f "Assets/AppIcon.icns" ]; then
     cp "Assets/AppIcon.icns" "${APP}/Contents/Resources/AppIcon.icns"
 fi
 
-# Copy all assets (standard SPM structure)
-cp -R Assets "${APP}/Contents/Resources/Assets" 2>/dev/null || true
+# Copy all assets (standard SPM structure), skipping Finder metadata.
+mkdir -p "${APP}/Contents/Resources/Assets"
+rsync -a --exclude ".DS_Store" Assets/ "${APP}/Contents/Resources/Assets/"
 
 # Copy localization resources
 cp -R Resources/*.lproj "${APP}/Contents/Resources/" 2>/dev/null || true
