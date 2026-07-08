@@ -23,6 +23,7 @@ struct DashboardFeedView: View {
     @State private var searchTask: Task<Void, Never>?
     @AppStorage("feedViewMode") private var viewMode: FeedViewMode = .grid
     @State private var newCardIDs: Set<UUID> = []
+    @State private var showArchiveOldDialog = false
 
     // Flexible columns: as many as fit at the minimum width, each stretching to
     // fill the remaining space so cards expand/contract with the column width.
@@ -72,16 +73,19 @@ struct DashboardFeedView: View {
                         .foregroundColor(HortColors.textTertiary)
                         .lineLimit(1)
                 }
+                if settings.semanticEnabled {
+                    HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
+                }
                 if selection == .inbox, memories.count > 10 {
-                    Menu {
-                        Button { archiveOlderThan(days: 7) } label: {
-                            Label(L("dashboard.archive_week"), systemImage: "archivebox")
-                        }
-                        Button { archiveOlderThan(days: 30) } label: {
-                            Label(L("dashboard.archive_month"), systemImage: "archivebox")
-                        }
-                    } label: {
-                        HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {}
+                    HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {
+                        showArchiveOldDialog = true
+                    }
+                    .confirmationDialog(L("dashboard.archive_old"),
+                                       isPresented: $showArchiveOldDialog,
+                                       titleVisibility: .visible) {
+                        Button(L("dashboard.archive_week")) { archiveOlderThan(days: 7) }
+                        Button(L("dashboard.archive_month")) { archiveOlderThan(days: 30) }
+                        Button(L("common.cancel"), role: .cancel) {}
                     }
                 }
                 HortIconButton(
@@ -91,9 +95,6 @@ struct DashboardFeedView: View {
                     withAnimation(.easeOut(duration: HortAnimation.fast)) {
                         viewMode = viewMode == .grid ? .list : .grid
                     }
-                }
-                if settings.semanticEnabled {
-                    HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
                 }
                 HortIconButton(icon: "square.and.arrow.up",
                                help: "dashboard.export_help",

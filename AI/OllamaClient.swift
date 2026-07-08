@@ -9,7 +9,19 @@ struct OllamaTagsResponse: Codable {
 }
 
 struct OllamaOptions: Codable {
-    var temperature: Double
+    /// Ollama's own default when unset, kept explicit here since this struct
+    /// must now always be sent (for `numCtx` below) — callers that want
+    /// grounded/deterministic output (tagging, summaries) still override this.
+    var temperature: Double = 0.8
+    /// Context window size in tokens. Ollama defaults to 2048 when this isn't
+    /// set, regardless of the loaded model's native context size, which is
+    /// tight for RAG (several cited notes) or multi-card synthesis.
+    var numCtx: Int = 8192
+
+    enum CodingKeys: String, CodingKey {
+        case temperature
+        case numCtx = "num_ctx"
+    }
 }
 
 struct OllamaGenerateRequest: Codable {
@@ -96,7 +108,8 @@ class OllamaClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120.0
 
-        let payload = OllamaGenerateRequest(model: model, prompt: prompt, stream: true)
+        let payload = OllamaGenerateRequest(model: model, prompt: prompt, stream: true,
+                                            options: OllamaOptions())
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (result, response) = try await URLSession.shared.bytes(for: request)

@@ -11,7 +11,6 @@ Organise, find and export it later. No accounts, no cloud, no telemetry.
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-black?logo=apple)](#build--run)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-orange.svg?style=flat-square)](https://github.com/gedankenlust/Hort/releases)
 [![Built with Swift](https://img.shields.io/badge/Swift-SwiftUI-fa7343?logo=swift&logoColor=white&style=flat-square)](https://developer.apple.com/swiftui/)
 [![Local AI: Ollama](https://img.shields.io/badge/AI-Ollama%20(local)-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.com)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/gedankenlust/Hort/pulls)
@@ -39,7 +38,7 @@ memory dashboard you can leave open on a second monitor.
 
 ### Download & Install
 
-**Just want to use Hort?** Download the latest **`Hort-1.0.0.zip`** from the
+**Just want to use Hort?** Download the latest release **`.zip`** from the
 [Releases](https://github.com/gedankenlust/Hort/releases) page, unzip it, and
 move **Hort.app** into your **Applications** folder.
 
@@ -72,20 +71,36 @@ local [Ollama](https://ollama.com) install.
 Hort runs in the background and turns your digital context into **Memory
 Objects**, visual cards in a live feed:
 
-- **Capture:** automatically saves clipboard **text**, **URLs** (with the right
-  type detection) and **images**, plus macOS **screenshots** from your Desktop.
+- **Capture:** automatically saves clipboard **text**, **URLs** (shown as
+  domain + path, with a link icon) and **images**, plus macOS **screenshots**
+  from your Desktop. Text cards use the first line as a title. New captures
+  briefly glow so you notice them arrive.
 - **Organise:** new captures land in the **Inbox**; drag a card onto one of
-  your own **Boards** (create your own), add **Tags**, mark **favourites**, or
-  **archive** what you're done with. **All Memories** is the full stream.
+  your own **Boards** (create your own, give them a colour that shows as a
+  stripe on the card) and **Tags**, mark **favourites**, or **archive** what
+  you're done with. **All Memories** is the full stream. Switch between a
+  **grid** and a compact **list view**. Rename or delete a tag globally from
+  the sidebar; junk tags (bare numbers, dates, units) are filtered out
+  automatically. Bulk-archive everything older than a week or a month with one
+  click.
 - **Retrieve:** instant search across content, source app and tags. Keyword
   search (SQLite FTS5) is fused with **semantic search** (local embeddings) so
   you find things by meaning too; filter the feed by board or tag from the
-  sidebar.
+  sidebar, or click a tag chip directly on a card.
+- **Undo:** deleting a card (or a whole selection) shows an undo toast for a
+  few seconds, or just press ⌘Z.
+- **Quick Look:** press Space or double-click a card to preview an image
+  natively, or open a captured URL straight in your browser.
+- **Menu bar:** a status item with capture on/off, your last 3 captures, Ask
+  and Settings, so Hort stays reachable without the main window open. Hideable
+  from Settings, along with an optional "launch at login".
 - **Export:** package the memories you're viewing into an **Obsidian-friendly
   ZIP**: one markdown file per memory (with frontmatter) plus an `assets/`
   folder with relatively-linked images.
 
-Cards support **multi-select** (⌘-click) for bulk archive/delete.
+Cards support **multi-select** (⌘-click, ⇧-click for ranges, ⌘A for all shown)
+for bulk archive/delete/favourite, or dragging the whole selection onto a
+board.
 
 ### How it works
 
@@ -106,11 +121,15 @@ Hort can use a local [Ollama](https://ollama.com) instance for AI features.
 **Off by default, opt-in in Settings, and nothing ever leaves your machine.**
 
 - **Analyse:** generate a short summary and suggested tags for a memory, on
-  demand from the Inspector or automatically via **Autopilot**.
+  demand from the Inspector or automatically via **Autopilot**. Screenshots and
+  images are described by a vision model instead of relying on OCR text alone.
 - **Semantic search:** every memory is embedded locally so search matches by
-  meaning, fused with keyword search.
+  meaning, fused with keyword search. Summaries and tags added by analysis flow
+  back into the index automatically.
 - **Ask your memory:** ask a question (✨ in the feed header or ⌘L) and get a
   streamed, **source-cited** answer drawn only from your own captures.
+- **Summarize selected:** select several cards and ask the Inspector to
+  synthesize them into one summary.
 
 Everything runs against models on your own machine; retrieved notes are treated
 strictly as data, never as instructions.
@@ -170,10 +189,13 @@ ZIP exports are written to wherever you choose in the save dialog. Settings
 | Shortcut | Action |
 | --- | --- |
 | ⌘1 / ⌘2 / ⌘3 / ⌘4 | Inbox / All Memories / Favorites / Archive |
+| ⌘A | Select all shown |
 | ⌘F | Search |
 | ⌘L | Ask your memory |
 | ⌘E | Export shown memories |
 | ⌘⌫ | Delete selected memories |
+| ⌘Z | Undo the last delete |
+| Space | Quick Look the selected card |
 | ⌘, | Settings |
 
 ### Build & run
@@ -233,8 +255,8 @@ Gedächtnis-System, das du auf einem zweiten Monitor offen lassen kannst.
 
 ### Download & Installation
 
-**Willst du Hort einfach nutzen?** Lade die aktuelle **`Hort-1.0.0.zip`** von der
-[Releases](https://github.com/gedankenlust/Hort/releases)-Seite, entpacke sie und
+**Willst du Hort einfach nutzen?** Lade das aktuelle Release-**`.zip`** von der
+[Releases](https://github.com/gedankenlust/Hort/releases)-Seite, entpacke es und
 zieh **Hort.app** in deinen **Programme**-Ordner.
 
 **Erster Start (die App ist quelloffen und unsigniert):** macOS verweigert den
@@ -266,21 +288,39 @@ benötigen ein lokales [Ollama](https://ollama.com).
 Hort läuft im Hintergrund und macht aus deinem digitalen Kontext **Memory
 Objects**, visuelle Karten in einem Live-Feed:
 
-- **Erfassen:** speichert automatisch **Text**, **URLs** (mit Typ-Erkennung) und
-  **Bilder** aus der Zwischenablage sowie macOS-**Screenshots** vom Schreibtisch.
+- **Erfassen:** speichert automatisch **Text**, **URLs** (als Domain + Pfad mit
+  Link-Icon dargestellt) und **Bilder** aus der Zwischenablage sowie
+  macOS-**Screenshots** vom Schreibtisch. Bei Textkarten wird die erste Zeile
+  als Titel gesetzt. Neue Captures leuchten kurz auf, damit du sie bemerkst.
 - **Organisieren:** neue Captures landen in der **Inbox**; zieh eine Karte auf
-  eines deiner **selbst erstellten Boards**, vergib **Tags**, markiere
+  eines deiner **selbst erstellten Boards** (mit eigener Farbe, die als
+  Streifen auf der Karte erscheint) oder vergib **Tags**, markiere
   **Favoriten** oder **archiviere** Erledigtes. **All Memories** ist der
-  komplette Strom.
+  komplette Strom. Zwischen **Kachel-** und kompakter **Listenansicht**
+  wechselbar. Tags lassen sich in der Sidebar global umbenennen oder löschen;
+  Datenmüll-Tags (reine Zahlen, Daten, Einheiten) werden automatisch
+  herausgefiltert. Alles Ältere als eine Woche oder einen Monat mit einem Klick
+  archivieren.
 - **Wiederfinden:** sofortige Suche über Inhalt, Quell-App und Tags. Die
   Stichwortsuche (SQLite FTS5) wird mit **semantischer Suche** (lokale
   Embeddings) verschmolzen, sodass du auch nach Bedeutung findest; den Feed
-  über die Sidebar nach Board oder Tag filtern.
+  über die Sidebar nach Board oder Tag filtern, oder direkt auf einen
+  Tag-Chip einer Karte klicken.
+- **Rückgängig machen:** beim Löschen einer Karte (oder ganzen Auswahl)
+  erscheint kurz ein Rückgängig-Hinweis, oder einfach ⌘Z drücken.
+- **Quick Look:** Leertaste oder Doppelklick zeigt Bilder in der nativen
+  Vorschau, erfasste URLs öffnen direkt im Browser.
+- **Menüleiste:** ein Status-Icon mit Erfassung an/aus, den letzten 3
+  Captures, Ask und Settings, damit Hort auch ohne offenes Hauptfenster
+  erreichbar bleibt. In den Einstellungen ausblendbar, dazu ein optionaler
+  "Beim Anmelden starten"-Schalter.
 - **Exportieren:** die gerade angezeigten Memories als **Obsidian-kompatibles
   ZIP** packen: eine Markdown-Datei pro Memory (mit Frontmatter) plus einen
   `assets/`-Ordner mit relativ verlinkten Bildern.
 
-Karten unterstützen **Mehrfachauswahl** (⌘-Klick) zum Archivieren/Löschen mehrerer.
+Karten unterstützen **Mehrfachauswahl** (⌘-Klick, ⇧-Klick für Bereiche, ⌘A für
+alle sichtbaren) zum Archivieren/Löschen/Favorisieren mehrerer, oder um die
+ganze Auswahl auf ein Board zu ziehen.
 
 ### Wie sie funktioniert
 
@@ -304,11 +344,16 @@ verlässt jemals deinen Rechner.**
 
 - **Analysieren:** erzeugt eine kurze Zusammenfassung und Tag-Vorschläge für
   ein Memory, auf Knopfdruck im Inspector oder automatisch per **Autopilot**.
+  Screenshots und Bilder werden von einem Vision-Modell beschrieben statt nur
+  über OCR-Text zu laufen.
 - **Semantische Suche:** jedes Memory wird lokal eingebettet, sodass die Suche
-  nach Bedeutung trifft, verschmolzen mit der Stichwortsuche.
+  nach Bedeutung trifft, verschmolzen mit der Stichwortsuche. Zusammenfassung
+  und Tags aus der Analyse fließen automatisch zurück in den Suchindex.
 - **Frag dein Gedächtnis:** stell eine Frage (✨ im Feed-Header oder ⌘L) und
   bekomme eine gestreamte, **quellen-zitierte** Antwort, ausschließlich aus
   deinen eigenen Captures.
+- **Auswahl zusammenfassen:** mehrere Karten markieren und im Inspector zu
+  einer Zusammenfassung synthetisieren lassen.
 
 Alles läuft gegen Modelle auf deinem eigenen Rechner; abgerufene Notizen werden
 strikt als Daten behandelt, nie als Anweisungen.
@@ -367,10 +412,13 @@ liegen in den macOS-**UserDefaults** unter der Bundle-ID `dev.hort.app`.
 | Kürzel | Aktion |
 | --- | --- |
 | ⌘1 / ⌘2 / ⌘3 / ⌘4 | Inbox / All Memories / Favoriten / Archiv |
+| ⌘A | Alle sichtbaren auswählen |
 | ⌘F | Suche |
 | ⌘L | Frag dein Gedächtnis |
 | ⌘E | Angezeigte Memories exportieren |
 | ⌘⌫ | Ausgewählte Memories löschen |
+| ⌘Z | Letztes Löschen rückgängig machen |
+| Leertaste | Quick Look für die ausgewählte Karte |
 | ⌘, | Einstellungen |
 
 ### Bauen & starten

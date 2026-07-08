@@ -63,7 +63,10 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .background(undoShortcut)
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            // Matches LaunchView's own animation timings (mark, text, scan line,
+            // glow) so the boot sequence actually finishes playing instead of
+            // being cut off mid-animation.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.05) {
                 withAnimation(.easeInOut(duration: 0.45)) { booting = false }
             }
         }
