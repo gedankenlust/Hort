@@ -2,6 +2,15 @@
 
 All notable changes to Hort are documented here.
 
+## [1.0.1] — 2026-07-08
+
+### Polish
+- Trimmed the README to the English public-facing version while keeping English
+  and German localization in the app.
+- Made the launch-screen status text match the logo and scan-line width.
+- Added a repeatable release packaging script and excluded Finder metadata from
+  app bundles.
+
 ## [1.0.0] — 2026-06-20
 
 First public release. A local-first visual memory layer for macOS: it quietly
