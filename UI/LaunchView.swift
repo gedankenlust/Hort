@@ -55,6 +55,7 @@ struct LaunchView: View {
                         .font(HortTypography.technical(size: HortTypography.Size.caption))
                         .tracking(statusTracking)
                         .foregroundColor(HortColors.textTertiary)
+                        .frame(width: Self.targetWidth)
                 }
                 .opacity(textIn ? 1 : 0)
             }
@@ -81,9 +82,7 @@ struct LaunchView: View {
         let font = NSFont.monospacedSystemFont(ofSize: HortTypography.Size.caption, weight: .medium)
         let naturalWidth = (text as NSString).size(withAttributes: [.font: font]).width
         let extra = Self.targetWidth - naturalWidth
-        // SwiftUI's `.tracking` adds space after every character (including the
-        // last), so dividing by the full count — not count - 1 — lands the
-        // rendered width on `targetWidth`.
-        return max(0, extra / CGFloat(text.count))
+        let gaps = max(text.count - 1, 1)
+        return max(0, extra / CGFloat(gaps))
     }
 }
