@@ -214,6 +214,9 @@ Scripts/build-app.sh debug
 
 # Run the tests
 swift test
+
+# Build a release ZIP for GitHub Releases
+Scripts/release.sh
 ```
 
 ### Tech stack
