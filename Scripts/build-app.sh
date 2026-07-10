@@ -14,7 +14,7 @@ DO_INSTALL="${2:-}"
 
 APP_NAME="Hort"
 BUNDLE_ID="dev.hort.app"
-VERSION="1.0.2"
+VERSION="1.0.0"
 
 DIST="dist"
 APP="${DIST}/${APP_NAME}.app"
