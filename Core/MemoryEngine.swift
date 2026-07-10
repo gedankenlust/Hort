@@ -80,7 +80,7 @@ class MemoryEngine: ObservableObject {
         }
     }
 
-    func fetchSidebarData() -> (inbox: Int, all: Int, favorites: Int, archive: Int, boards: [String: Int], folders: [String: Int], tags: [String]) {
+    func fetchSidebarData() -> (inbox: Int, all: Int, favorites: Int, archive: Int, boards: [String: Int], folders: [String: Int], tags: [String], tagCounts: [String: Int]) {
         do {
             return try dbQueue.read { db in
                 let inbox = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM memoryObject WHERE isArchived = 0 AND board IS NULL") ?? 0
@@ -109,11 +109,11 @@ class MemoryEngine: ObservableObject {
                     .filter { $0.value >= 2 && !Self.isJunkTag($0.key) }
                     .map(\.key)
                     .sorted()
-                return (inbox, all, favorites, archive, boardCounts, folderCounts, filtered)
+                return (inbox, all, favorites, archive, boardCounts, folderCounts, filtered, tagCounts)
             }
         } catch {
             print("Error fetching sidebar data: \(error)")
-            return (0, 0, 0, 0, [:], [:], [])
+            return (0, 0, 0, 0, [:], [:], [], [:])
         }
     }
 

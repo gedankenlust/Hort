@@ -28,6 +28,7 @@ struct SidebarView: View {
     @State private var boardCounts: [String: Int] = [:]
     @State private var folderCounts: [String: Int] = [:]
     @State private var allTags: [String] = []
+    @State private var tagCounts: [String: Int] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -70,6 +71,7 @@ struct SidebarView: View {
                     LazyVStack(alignment: .leading, spacing: HortSpacing.xs) {
                         ForEach(sortedTags, id: \.self) { tag in
                             SidebarItem(icon: "number", title: tag,
+                                        count: tagCounts[tag] ?? 0,
                                         isActive: selection == .tag(tag),
                                         action: { selection = .tag(tag) },
                                         dropHandler: { id in
@@ -315,6 +317,7 @@ struct SidebarView: View {
         boardCounts = data.boards
         folderCounts = data.folders
         allTags = data.tags
+        tagCounts = data.tagCounts
     }
 
     // MARK: - Actions
