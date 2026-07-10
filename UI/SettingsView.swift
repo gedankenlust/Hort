@@ -88,7 +88,7 @@ struct SettingsView: View {
                 .padding(HortSpacing.xl)
             }
         }
-        .frame(width: 520, height: 520)
+        .frame(width: 600, height: 650)
         .background(HortColors.background)
         .preferredColorScheme(.dark)
         .task {
@@ -108,8 +108,17 @@ struct SettingsView: View {
 
             Spacer()
 
-            HortButton(title: "common.done", style: .primary) { dismiss() }
-                .frame(width: 80)
+            Button(action: { dismiss() }) {
+                Text(LocalizedStringKey("common.done"))
+                    .font(HortTypography.label(weight: .medium))
+                    .padding(.horizontal, HortSpacing.md)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .background(HortColors.accent)
+            .foregroundColor(HortColors.background)
+            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium))
+            .keyboardShortcut(.defaultAction)
         }
         .padding(.horizontal, HortSpacing.xl)
         .padding(.vertical, HortSpacing.md)
@@ -132,6 +141,7 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 .tint(HortColors.accent)
             }
+            .settingsCard()
 
             // Capture settings
             VStack(alignment: .leading, spacing: HortSpacing.md) {
@@ -161,6 +171,7 @@ struct SettingsView: View {
                 .toggleStyle(.switch)
                 .tint(HortColors.accent)
             }
+            .settingsCard()
 
             // Danger Zone
             VStack(alignment: .leading, spacing: HortSpacing.md) {
@@ -177,6 +188,7 @@ struct SettingsView: View {
                     Button(LocalizedStringKey("common.cancel"), role: .cancel) {}
                 }
             }
+            .settingsCard()
         }
     }
 
@@ -205,11 +217,13 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .settingsCard()
 
             VStack(alignment: .leading, spacing: HortSpacing.md) {
                 HortSectionHeader(title: "settings.excluded_apps")
                 excludedAppsEditor
             }
+            .settingsCard()
 
             VStack(alignment: .leading, spacing: HortSpacing.md) {
                 HortSectionHeader(title: "settings.storage")
@@ -241,6 +255,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .settingsCard()
         }
     }
 
@@ -322,6 +337,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .settingsCard()
 
             // Semantic search & Ask
             VStack(alignment: .leading, spacing: HortSpacing.md) {
@@ -381,6 +397,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .settingsCard()
         }
     }
 
@@ -469,5 +486,26 @@ private struct ModelPicker: View {
         }
         .pickerStyle(.menu)
         .tint(HortColors.accent)
+    }
+}
+
+// MARK: - View Modifiers
+
+struct SettingsCardModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(HortSpacing.lg)
+            .background(HortColors.elevated)
+            .clipShape(RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
+                    .strokeBorder(HortColors.border, lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func settingsCard() -> some View {
+        self.modifier(SettingsCardModifier())
     }
 }
