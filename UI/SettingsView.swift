@@ -176,12 +176,6 @@ struct SettingsView: View {
                     Button(LocalizedStringKey("common.delete"), role: .destructive) { MemoryEngine.shared.deleteAll() }
                     Button(LocalizedStringKey("common.cancel"), role: .cancel) {}
                 }
-
-                HortButton(
-                    title: "Generate 20 Fake Items",
-                    icon: "sparkles",
-                    style: .secondary
-                ) { generateFakes() }
             }
         }
     }
@@ -458,69 +452,6 @@ struct SettingsView: View {
         newBundleID = ""
     }
 
-    private func generateFakes() {
-        let sampleTexts = [
-            "Meeting notes from today: we need to update the UI.",
-            "Remember to buy milk and eggs.",
-            "import SwiftUI\n\nstruct FakeView: View {\n  var body: some View {\n    Text(\"Hello\")\n  }\n}",
-            "Flight gets in at 9:00 PM.",
-            "Idea: A new app for tracking habits, similar to Streaks but with more social features."
-        ]
-        
-        let sampleURLs = [
-            "https://apple.com",
-            "https://github.com",
-            "https://swift.org",
-            "https://developer.apple.com/documentation/swiftui",
-            "https://news.ycombinator.com"
-        ]
-        
-        let sampleApps = ["Safari", "Notes", "Xcode", "Mail", "Messages", "Arc", "Finder"]
-        let sampleTags = [["swift", "code"], ["design"], ["idea", "app"], ["work", "meeting"], ["personal"]]
-        
-        for _ in 1...20 {
-            let type = Int.random(in: 0...2)
-            var obj: MemoryObject
-            
-            if type == 0 {
-                obj = MemoryObject(type: .text, content: sampleTexts.randomElement()!)
-            } else if type == 1 {
-                obj = MemoryObject(type: .url, content: sampleURLs.randomElement()!)
-            } else {
-                obj = MemoryObject(type: .screenshot, content: nil)
-                obj.metadata["ocrText"] = "Placeholder Screenshot OCR text."
-                
-                let image = NSImage(size: NSSize(width: 800, height: 600))
-                image.lockFocus()
-                NSColor(calibratedHue: CGFloat.random(in: 0...1), saturation: 0.5, brightness: 0.8, alpha: 1.0).set()
-                NSRect(x: 0, y: 0, width: 800, height: 600).fill()
-                let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 48), .foregroundColor: NSColor.white]
-                "Fake Screenshot".draw(at: NSPoint(x: 200, y: 300), withAttributes: attrs)
-                image.unlockFocus()
-                
-                if let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
-                   let data = bitmap.representation(using: .png, properties: [:]) {
-                    let fm = FileManager.default
-                    let root = FileSystemManager.shared.rootURL
-                    let assets = root.appendingPathComponent("assets")
-                    let thumbs = root.appendingPathComponent("thumbnails")
-                    try? fm.createDirectory(at: assets, withIntermediateDirectories: true)
-                    try? fm.createDirectory(at: thumbs, withIntermediateDirectories: true)
-                    
-                    let filename = "\(obj.id.uuidString).png"
-                    try? data.write(to: assets.appendingPathComponent(filename))
-                    try? data.write(to: thumbs.appendingPathComponent(filename))
-                }
-            }
-            
-            obj.sourceApp = sampleApps.randomElement()
-            obj.tags = sampleTags.randomElement() ?? []
-            obj.createdAt = Date().addingTimeInterval(Double.random(in: -864000...0))
-            obj.updatedAt = obj.createdAt
-            
-            MemoryEngine.shared.save(obj)
-        }
-    }
 }
 
 // MARK: - Model Picker
