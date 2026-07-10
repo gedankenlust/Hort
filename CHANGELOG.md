@@ -2,16 +2,7 @@
 
 All notable changes to Hort are documented here.
 
-## [1.0.1] — 2026-07-08
-
-### Polish
-- Trimmed the README to the English public-facing version while keeping English
-  and German localization in the app.
-- Made the launch-screen status text match the logo and scan-line width.
-- Added a repeatable release packaging script and excluded Finder metadata from
-  app bundles.
-
-## [1.0.0] — 2026-06-20
+## [1.0.0] — 2026-07-10
 
 First public release. A local-first visual memory layer for macOS: it quietly
 captures what you copy and screenshot, and turns it into a searchable,
@@ -64,3 +55,6 @@ organisable card feed — with an optional, fully on-device AI layer.
   fills the available width, tabbed settings, app icon, keyboard shortcuts
   (⌘1–4, ⌘F, ⌘L, ⌘A, ⌘E, ⌘⌫, ⌘,), a brief cinematic boot sequence, English +
   German localization, and an XCTest suite.
+- Trimmed the README to the English public-facing version.
+- Made the launch-screen status text match the logo and scan-line width.
+- Added a repeatable release packaging script and excluded Finder metadata from app bundles.
