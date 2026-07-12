@@ -33,6 +33,16 @@
 "settings.menubar_icon" = "Menüleisten-Icon anzeigen";
 "settings.launch_at_login" = "Beim Anmelden starten";
 "settings.privacy" = "Datenschutz";
+"settings.privacy.overview" = "Status lokaler Daten";
+"settings.privacy.status.capture" = "Hintergrund-Erfassung";
+"settings.privacy.status.ai" = "Lokale KI-Verbindung";
+"settings.privacy.status.telemetry" = "Telemetrie";
+"settings.privacy.status.active" = "Aktiv";
+"settings.privacy.status.paused" = "Pausiert";
+"settings.privacy.status.disabled" = "Deaktiviert";
+"settings.privacy.status.local_connected" = "Lokal verbunden";
+"settings.privacy.status.local_offline" = "Lokal nicht erreichbar";
+"settings.privacy.status.none" = "Keine";
 "settings.privacy.ignore_passwords" = "Passwörter/Private Ablage ignorieren";
 "settings.privacy.ignore_passwords_desc" = "Überspringt als sensibel markierte Inhalte (z.B. Passwort-Manager)";
 "settings.privacy.screenshot_warning" = "Schreibtisch-Screenshots werden unabhängig von der aktiven App erfasst. Lösche sensible Bildinhalte bei Bedarf manuell.";
@@ -51,11 +61,13 @@
 "settings.excluded_apps" = "Ausgeschlossene Apps (Bundle IDs)";
 "settings.excluded_apps.empty" = "Keine Apps ausgeschlossen";
 "settings.excluded_apps.placeholder" = "com.beispiel.app";
+"settings.excluded_apps.restore_defaults" = "Passwort-Manager-Standard wiederherstellen";
 "settings.storage" = "Datenspeicher";
 "settings.storage.reveal" = "Im Finder zeigen";
 "settings.danger_zone" = "Gefahrenzone";
 "settings.clear_all" = "Alle Erinnerungen löschen";
-"settings.clear_all_confirm" = "Bist du sicher? Das kann nicht rückgängig gemacht werden.";
+"settings.clear_all_desc" = "Löscht Datenbankeinträge, erfasste Bildkopien und Vorschaubilder. Selbst exportierte Dateien bleiben erhalten.";
+"settings.clear_all_confirm" = "Alle Erinnerungen und erfassten Bilder löschen? Exportierte Dateien bleiben erhalten. Das kann nicht rückgängig gemacht werden.";
 
 /* Inspector */
 "inspector.select_memory" = "Wähle ein Memory aus";
@@ -131,12 +143,12 @@
 "onboarding.status" = "Bereit";
 "onboarding.title" = "Willkommen bei Hort";
 "onboarding.subtitle" = "Dein lokales, visuelles Gedächtnis läuft im Hintergrund und wartet auf Inhalte.";
-"onboarding.step1.title" = "Erfassung & Analyse";
-"onboarding.step1.desc" = "Kopiere Texte, Bilder oder URLs. Mache Screenshots auf deinem Schreibtisch. Hort erfasst sie geräuschlos.";
+"onboarding.step1.title" = "Private Erfassung";
+"onboarding.step1.desc" = "Hort reagiert nur auf kopierte Inhalte und neue Schreibtisch-Screenshots. Sensible Ablagen und ausgeschlossene Apps werden übersprungen.";
 "onboarding.step2.title" = "Workspace Ordnung";
 "onboarding.step2.desc" = "Erstelle Boards in der Sidebar. Ziehe Memory-Karten einfach per Drag & Drop auf Boards, Tags oder ins Archiv.";
-"onboarding.step3.title" = "Obsidian Export";
-"onboarding.step3.desc" = "Exportiere deine Boards als Obsidian-kompatible Markdown-ZIP-Dateien inklusive aller verknüpften Bildmedien.";
+"onboarding.step3.title" = "Lokale Kontrolle";
+"onboarding.step3.desc" = "KI bleibt optional und lokal. Exportiere portable Markdown-ZIPs oder lösche deine gespeicherten Erinnerungen jederzeit.";
 "onboarding.awaiting" = "Warte auf erste Erinnerung…";
 "onboarding.start_capture" = "Capture starten";
 "onboarding.stop_capture" = "Capture stoppen";

@@ -93,8 +93,7 @@ struct SettingsView: View {
         .preferredColorScheme(.dark)
         .task {
             await loadOllamaModels()
-            let root = FileSystemManager.shared.rootURL
-            storageSize = await Task.detached { Self.folderSizeString(root) }.value
+            await refreshStorageSize()
         }
     }
 
@@ -173,28 +172,39 @@ struct SettingsView: View {
             }
             .settingsCard()
 
-            // Danger Zone
-            VStack(alignment: .leading, spacing: HortSpacing.md) {
-                HortSectionHeader(title: "settings.danger_zone")
-
-                HortButton(
-                    title: "settings.clear_all",
-                    icon: "trash",
-                    style: .destructive
-                ) { confirmClear = true }
-                .confirmationDialog(LocalizedStringKey("settings.clear_all_confirm"),
-                                    isPresented: $confirmClear, titleVisibility: .visible) {
-                    Button(LocalizedStringKey("common.delete"), role: .destructive) { MemoryEngine.shared.deleteAll() }
-                    Button(LocalizedStringKey("common.cancel"), role: .cancel) {}
-                }
-            }
-            .settingsCard()
         }
     }
 
     @ViewBuilder
     private var privacyTab: some View {
         VStack(alignment: .leading, spacing: HortSpacing.xl) {
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.privacy.overview")
+
+                privacyStatusRow(
+                    icon: capture.isCapturing ? "record.circle.fill" : "pause.circle.fill",
+                    title: "settings.privacy.status.capture",
+                    value: capture.isCapturing ? "settings.privacy.status.active" : "settings.privacy.status.paused",
+                    tint: capture.isCapturing ? HortColors.success : HortColors.warning
+                )
+                privacyStatusRow(
+                    icon: "cpu",
+                    title: "settings.privacy.status.ai",
+                    value: !settings.aiEnabled && !settings.semanticEnabled
+                        ? "settings.privacy.status.disabled"
+                        : (ollamaOnline ? "settings.privacy.status.local_connected" : "settings.privacy.status.local_offline"),
+                    tint: (!settings.aiEnabled && !settings.semanticEnabled) || ollamaOnline
+                        ? HortColors.success : HortColors.warning
+                )
+                privacyStatusRow(
+                    icon: "waveform.path.ecg",
+                    title: "settings.privacy.status.telemetry",
+                    value: "settings.privacy.status.none",
+                    tint: HortColors.success
+                )
+            }
+            .settingsCard()
+
             VStack(alignment: .leading, spacing: HortSpacing.md) {
                 HortSectionHeader(title: "settings.privacy")
 
@@ -222,6 +232,12 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: HortSpacing.md) {
                 HortSectionHeader(title: "settings.excluded_apps")
                 excludedAppsEditor
+
+                HortButton(
+                    title: "settings.excluded_apps.restore_defaults",
+                    icon: "arrow.counterclockwise",
+                    style: .ghost
+                ) { settings.excludedBundleIDs = SettingsStore.defaultExcludedBundleIDs }
             }
             .settingsCard()
 
@@ -256,6 +272,48 @@ struct SettingsView: View {
                 }
             }
             .settingsCard()
+
+            VStack(alignment: .leading, spacing: HortSpacing.md) {
+                HortSectionHeader(title: "settings.danger_zone")
+
+                Text(LocalizedStringKey("settings.clear_all_desc"))
+                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                    .foregroundColor(HortColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HortButton(
+                    title: "settings.clear_all",
+                    icon: "trash",
+                    style: .destructive
+                ) { confirmClear = true }
+                .confirmationDialog(LocalizedStringKey("settings.clear_all_confirm"),
+                                    isPresented: $confirmClear, titleVisibility: .visible) {
+                    Button(LocalizedStringKey("common.delete"), role: .destructive) { clearAllMemories() }
+                    Button(LocalizedStringKey("common.cancel"), role: .cancel) {}
+                }
+            }
+            .settingsCard()
+        }
+    }
+
+    private func privacyStatusRow(
+        icon: String,
+        title: LocalizedStringKey,
+        value: LocalizedStringKey,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: HortSpacing.sm) {
+            Image(systemName: icon)
+                .foregroundColor(tint)
+                .frame(width: 20)
+            Text(title)
+                .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
+                .foregroundColor(HortColors.textPrimary)
+            Spacer()
+            Text(value)
+                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                .foregroundColor(tint)
+                .multilineTextAlignment(.trailing)
         }
     }
 
@@ -266,6 +324,16 @@ struct SettingsView: View {
 
     private func revealStorage() {
         NSWorkspace.shared.activateFileViewerSelecting([FileSystemManager.shared.rootURL])
+    }
+
+    private func clearAllMemories() {
+        MemoryEngine.shared.deleteAll()
+        Task { await refreshStorageSize() }
+    }
+
+    private func refreshStorageSize() async {
+        let root = FileSystemManager.shared.rootURL
+        storageSize = await Task.detached { Self.folderSizeString(root) }.value
     }
 
     /// Total size of a folder, formatted (e.g. "12.3 MB"). Runs off the main

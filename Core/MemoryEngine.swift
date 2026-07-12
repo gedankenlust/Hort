@@ -6,6 +6,7 @@ class MemoryEngine: ObservableObject {
     static let shared = MemoryEngine()
 
     private let dbQueue: DatabaseQueue
+    private let fileSystem: FileSystemManager
     @Published var recentMemories: [MemoryObject] = []
     @Published var dataVersion: Int = 0
 
@@ -19,13 +20,15 @@ class MemoryEngine: ObservableObject {
 
     private init() {
         self.dbQueue = DatabaseManager.shared.dbQueue
+        self.fileSystem = .shared
         rebuildSearchIndex()
         fetchRecent()
     }
 
     /// Internal initializer for dependency injection in tests.
-    init(dbQueue: DatabaseQueue) {
+    init(dbQueue: DatabaseQueue, fileSystem: FileSystemManager = .shared) {
         self.dbQueue = dbQueue
+        self.fileSystem = fileSystem
         rebuildSearchIndex()
         fetchRecent()
     }
@@ -167,8 +170,8 @@ class MemoryEngine: ObservableObject {
     private func deleteAssociatedFiles(for id: UUID) {
         let fm = FileManager.default
         let fileName = "\(id.uuidString).png"
-        let assetURL = FileSystemManager.shared.assetsURL.appendingPathComponent(fileName)
-        let thumbURL = FileSystemManager.shared.thumbnailsURL.appendingPathComponent(fileName)
+        let assetURL = fileSystem.assetsURL.appendingPathComponent(fileName)
+        let thumbURL = fileSystem.thumbnailsURL.appendingPathComponent(fileName)
         try? fm.removeItem(at: assetURL)
         try? fm.removeItem(at: thumbURL)
     }
@@ -211,10 +214,10 @@ class MemoryEngine: ObservableObject {
             // Leave exports/ alone — those are files the user deliberately
             // generated, not raw memory data.
             let fm = FileManager.default
-            if let assets = try? fm.contentsOfDirectory(at: FileSystemManager.shared.assetsURL, includingPropertiesForKeys: nil) {
+            if let assets = try? fm.contentsOfDirectory(at: fileSystem.assetsURL, includingPropertiesForKeys: nil) {
                 assets.forEach { try? fm.removeItem(at: $0) }
             }
-            if let thumbs = try? fm.contentsOfDirectory(at: FileSystemManager.shared.thumbnailsURL, includingPropertiesForKeys: nil) {
+            if let thumbs = try? fm.contentsOfDirectory(at: fileSystem.thumbnailsURL, includingPropertiesForKeys: nil) {
                 thumbs.forEach { try? fm.removeItem(at: $0) }
             }
             invalidateEmbeddingCache()

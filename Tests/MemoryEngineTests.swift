@@ -4,16 +4,26 @@ import XCTest
 final class MemoryEngineTests: XCTestCase {
     var dbManager: DatabaseManager!
     var engine: MemoryEngine!
+    var fileSystem: FileSystemManager!
+    var temporaryRoot: URL!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
+        temporaryRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HortTests-\(UUID().uuidString)", isDirectory: true)
+        fileSystem = FileSystemManager(rootURL: temporaryRoot)
         dbManager = DatabaseManager.makeInMemory()
-        engine = MemoryEngine(dbQueue: dbManager.dbQueue)
+        engine = MemoryEngine(dbQueue: dbManager.dbQueue, fileSystem: fileSystem)
     }
 
     override func tearDownWithError() throws {
         engine = nil
         dbManager = nil
+        fileSystem = nil
+        if let temporaryRoot {
+            try? FileManager.default.removeItem(at: temporaryRoot)
+        }
+        temporaryRoot = nil
         try super.tearDownWithError()
     }
 
@@ -44,8 +54,8 @@ final class MemoryEngineTests: XCTestCase {
         let id = UUID()
         let fm = FileManager.default
         let fileName = "\(id.uuidString).png"
-        let assetURL = FileSystemManager.shared.assetsURL.appendingPathComponent(fileName)
-        let thumbURL = FileSystemManager.shared.thumbnailsURL.appendingPathComponent(fileName)
+        let assetURL = fileSystem.assetsURL.appendingPathComponent(fileName)
+        let thumbURL = fileSystem.thumbnailsURL.appendingPathComponent(fileName)
         
         // Write dummy files
         try "dummy-asset".data(using: .utf8)?.write(to: assetURL)
@@ -94,6 +104,13 @@ final class MemoryEngineTests: XCTestCase {
         engine.save(obj1)
         engine.save(obj2)
 
+        let asset = fileSystem.assetsURL.appendingPathComponent("test.png")
+        let thumbnail = fileSystem.thumbnailsURL.appendingPathComponent("test.png")
+        let export = fileSystem.exportsURL.appendingPathComponent("kept.md")
+        try Data("asset".utf8).write(to: asset)
+        try Data("thumbnail".utf8).write(to: thumbnail)
+        try Data("export".utf8).write(to: export)
+
         var memories = engine.fetchMemories(for: .all)
         XCTAssertEqual(memories.count, 2)
 
@@ -101,6 +118,9 @@ final class MemoryEngineTests: XCTestCase {
 
         memories = engine.fetchMemories(for: .all)
         XCTAssertEqual(memories.count, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: asset.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: thumbnail.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: export.path), "explicit exports must be preserved")
     }
 
     func testFTS5Search() throws {

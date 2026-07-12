@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a focused improvement for Hort
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What problem would this solve?
+      description: Explain the workflow or difficulty rather than only the proposed button or screen.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Suggested behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Does this involve data leaving the Mac?
+      options:
+        - No
+        - Possibly
+        - Yes
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
