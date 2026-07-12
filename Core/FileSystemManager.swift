@@ -8,16 +8,26 @@ class FileSystemManager {
     let exportsURL: URL
     let thumbnailsURL: URL
     
-    private init() {
+    private convenience init() {
         let fileManager = FileManager.default
         let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        rootURL = appSupportURL.appendingPathComponent("Hort", isDirectory: true)
-        
+        self.init(
+            rootURL: appSupportURL.appendingPathComponent("Hort", isDirectory: true),
+            migrateLegacyData: true
+        )
+    }
+
+    /// Creates an isolated store. Tests use this initializer with a temporary
+    /// directory so they can never touch the user's real Hort data.
+    init(rootURL: URL, migrateLegacyData: Bool = false) {
+        self.rootURL = rootURL
         assetsURL = rootURL.appendingPathComponent("assets", isDirectory: true)
         exportsURL = rootURL.appendingPathComponent("exports", isDirectory: true)
         thumbnailsURL = rootURL.appendingPathComponent("thumbnails", isDirectory: true)
-        
-        migrateFromLegacyPath()
+
+        if migrateLegacyData {
+            migrateFromLegacyPath()
+        }
         setupDirectories()
     }
     

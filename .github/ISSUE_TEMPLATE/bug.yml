@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem in Hort
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Hort. Do not include captured clipboard text, screenshots, database files, tokens, or other private data.
+  - type: input
+    id: version
+    attributes:
+      label: Hort version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac type
+      placeholder: "macOS 15.5, Apple Silicon"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem without including private captured content.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: ollama
+    attributes:
+      label: Local AI status
+      options:
+        - Disabled
+        - Enabled and connected
+        - Enabled but offline
+        - Not relevant
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private captures, screenshots, paths, tokens, and personal information from this report.
+          required: true

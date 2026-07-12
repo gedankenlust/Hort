@@ -12,7 +12,10 @@ DerivedData/
 .DS_Store
 
 # Internal Documentation & Specs
-Docs/
+Docs/*
+!Docs/DEVELOPMENT.md
+!Docs/PRIVACY.md
+!Docs/USER_GUIDE.md
 Specs/
 
 # IDEs & AI Agents

@@ -7,15 +7,17 @@
 **A local-first visual memory layer for macOS.**
 
 Capture what you copy and screenshot into a calm, searchable card feed.  
-Organise, find and export it later. No accounts, no cloud, no telemetry.
+No accounts, no cloud, no telemetry.
 
-[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-black?logo=apple)](#build--run)
+[![CI](https://github.com/gedankenlust/Hort/actions/workflows/ci.yml/badge.svg)](https://github.com/gedankenlust/Hort/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-black?logo=apple)](#build--test)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Built with Swift](https://img.shields.io/badge/Swift-SwiftUI-fa7343?logo=swift&logoColor=white&style=flat-square)](https://developer.apple.com/swiftui/)
-[![Local AI: Ollama](https://img.shields.io/badge/AI-Ollama%20(local)-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.com)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/gedankenlust/Hort/pulls)
+[![SwiftUI](https://img.shields.io/badge/Swift-SwiftUI-fa7343?logo=swift&logoColor=white)](https://developer.apple.com/swiftui/)
 
-[**Download the latest App**](https://github.com/gedankenlust/Hort/releases) · [What it does](#what-it-does) · [Local AI](#local-ai-optional-fully-on-device) · [Privacy](#privacy--security) · [Build](#build--run)
+[**Download Hort**](https://github.com/gedankenlust/Hort/releases) ·
+[User guide](Docs/USER_GUIDE.md) ·
+[Privacy](Docs/PRIVACY.md) ·
+[Roadmap](ROADMAP.md)
 
 </div>
 
@@ -27,220 +29,97 @@ Organise, find and export it later. No accounts, no cloud, no telemetry.
 
 > It is not important to know how something works. It is important to know where it is.
 
-Not a clipboard manager, not a notes app, not an AI assistant. Just a persistent
-memory dashboard you can leave open on a second monitor.
+Hort is a persistent memory dashboard for copied text, URLs, images, and macOS
+screenshots. It stores everything locally and makes the result searchable,
+organisable, and portable.
 
-### Download & Install
+## Download and install
 
-**Just want to use Hort?** Download the latest release **`.zip`** from the
-[Releases](https://github.com/gedankenlust/Hort/releases) page, unzip it, and
-move **Hort.app** into your **Applications** folder.
+Download the latest `Hort-<version>.zip` from
+[Releases](https://github.com/gedankenlust/Hort/releases), unzip it, and move
+`Hort.app` into Applications. Hort requires macOS 14 or newer.
 
-**First launch (the app is open-source and unsigned):** macOS refuses to open it
-the first time because it is not from an "identified developer". This is
-expected. To allow it:
+Hort is open source, ad-hoc signed, and not notarized because it ships without a
+paid Apple Developer account. On macOS 15 or newer, try to open it once and then
+use **System Settings > Privacy & Security > Open Anyway**. On older macOS
+versions, Control-click the app and choose **Open**.
 
-- **macOS 15 (Sequoia) or newer:** double-click Hort, dismiss the warning, then
-  open **System Settings → Privacy & Security**, scroll down, and click
-  **"Open Anyway"**. Confirm once.
-- **Older macOS:** **right-click (or Control-click) Hort.app → "Open"**, then
-  click **"Open"** in the dialog.
-- **If macOS says the app is "damaged" (Apple Silicon):** clear the quarantine
-  flag once in Terminal:
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/Hort.app
-  ```
+Detailed installation and permission help is in the
+[user guide](Docs/USER_GUIDE.md).
 
-You only need to do this once per install or update. Hort is not notarized
-because it ships without a paid Apple Developer account. Everything still runs
-100% locally on your Mac.
+## What it does
 
-**Requirements:** macOS 14 or newer. The AI features are optional and need a
-local [Ollama](https://ollama.com) install.
+- **Capture:** clipboard text, web URLs, copied images, files, and new macOS
+  screenshots from the Desktop. OCR makes screenshot text searchable.
+- **Organise:** Inbox, favorites, archive, boards, folders, tags, drag and drop,
+  multi-select, and bulk actions.
+- **Retrieve:** fast SQLite FTS5 keyword search plus optional local semantic
+  search through Ollama.
+- **Preview and undo:** native Quick Look, direct URL opening, and undo after
+  deletion.
+- **Export:** Obsidian-friendly ZIPs with Markdown frontmatter and portable
+  image links.
+- **Stay available:** an optional menu bar item, launch at login, and English
+  and German interfaces.
 
----
+## Local AI
 
-### What it does
+Optional AI features use an Ollama service on `localhost:11434` and are disabled
+by default. Hort has no cloud fallback.
 
-Hort runs in the background and turns your digital context into **Memory
-Objects**, visual cards in a live feed:
+- Generate summaries and suggested tags on demand or through Autopilot.
+- Build local embeddings for semantic search.
+- Ask questions across selected memories with source citations.
+- Analyse images with a locally installed vision model.
 
-- **Capture:** automatically saves clipboard **text**, **URLs** (shown as
-  domain + path, with a link icon) and **images**, plus macOS **screenshots**
-  from your Desktop. Text cards use the first line as a title. New captures
-  briefly glow so you notice them arrive.
-- **Organise:** new captures land in the **Inbox**; drag a card onto one of
-  your own **Boards** (create your own, give them a colour that shows as a
-  stripe on the card) and **Tags**, mark **favourites**, or **archive** what
-  you're done with. **All Memories** is the full stream. Switch between a
-  **grid** and a compact **list view**. Rename or delete a tag globally from
-  the sidebar; junk tags (bare numbers, dates, units) are filtered out
-  automatically. Bulk-archive everything older than a week or a month with one
-  click.
-- **Retrieve:** instant search across content, source app and tags. Keyword
-  search (SQLite FTS5) is fused with **semantic search** (local embeddings) so
-  you find things by meaning too; filter the feed by board or tag from the
-  sidebar, or click a tag chip directly on a card.
-- **Undo:** deleting a card (or a whole selection) shows an undo toast for a
-  few seconds, or just press ⌘Z.
-- **Quick Look:** press Space or double-click a card to preview an image
-  natively, or open a captured URL straight in your browser.
-- **Menu bar:** a status item with capture on/off, your last 3 captures, Ask
-  and Settings, so Hort stays reachable without the main window open. Hideable
-  from Settings, along with an optional "launch at login".
-- **Export:** package the memories you're viewing into an **Obsidian-friendly
-  ZIP**: one markdown file per memory (with frontmatter) plus an `assets/`
-  folder with relatively-linked images.
+Captured text is treated as untrusted data rather than model instructions.
 
-Cards support **multi-select** (⌘-click, ⇧-click for ranges, ⌘A for all shown)
-for bulk archive/delete/favourite, or dragging the whole selection onto a
-board.
+## Privacy
 
-### How it works
+Hort has no accounts, cloud sync, analytics, or telemetry. It skips clipboard
+items marked concealed or transient, excludes common password managers by
+default, never logs captured content in release builds, and keeps its store under
+`~/Library/Application Support/Hort/`.
 
-1. A background **Capture Engine** polls the clipboard (~2×/second) and watches
-   your Desktop for new screenshots.
-2. Each capture becomes a **Memory Object** stored in **SQLite** (the source of
-   truth). Images are saved as assets and a thumbnail is generated for the card
-   preview.
-3. The **dashboard** (the main window) renders the live feed. Selecting a card opens
-   the **Inspector** on the right with its metadata, content and actions
-   (favourite, copy, export to markdown, archive, delete, tags).
-4. The **sidebar** navigates between Memory Feed, Capture Hub (unfiled),
-   Archive, Boards and Tags. Drag a card onto a board, tag or Archive to file it.
+The Privacy tab shows capture, local AI, telemetry, storage, and excluded-app
+status. Read [Privacy and Data Handling](Docs/PRIVACY.md) for exact boundaries,
+including how Desktop screenshots differ from clipboard exclusions.
 
-### Local AI (optional, fully on-device)
+Security problems should be reported privately according to
+[SECURITY.md](SECURITY.md), never through a public issue.
 
-Hort can use a local [Ollama](https://ollama.com) instance for AI features.
-**Off by default, opt-in in Settings, and nothing ever leaves your machine.**
+## Build and test
 
-- **Analyse:** generate a short summary and suggested tags for a memory, on
-  demand from the Inspector or automatically via **Autopilot**. Screenshots and
-  images are described by a vision model instead of relying on OCR text alone.
-- **Semantic search:** every memory is embedded locally so search matches by
-  meaning, fused with keyword search. Summaries and tags added by analysis flow
-  back into the index automatically.
-- **Ask your memory:** ask a question (✨ in the feed header or ⌘L) and get a
-  streamed, **source-cited** answer drawn only from your own captures.
-- **Summarize selected:** select several cards and ask the Inspector to
-  synthesize them into one summary.
-
-Everything runs against models on your own machine; retrieved notes are treated
-strictly as data, never as instructions.
-
-### Privacy & Security
-
-**Hort is local-first.** This means your data never leaves your computer. There are no accounts, no cloud sync, no tracking, and no telemetry.
-
-*   **You control the data:** Everything is stored in a local SQLite database on your machine.
-*   **No "Surveillance":** Hort does not record your screen or log your keystrokes. It only reacts to two specific user actions:
-    1.  When you **copy** something to your clipboard (Cmd+C).
-    2.  When a **new screenshot file** appears on your Desktop.
-*   **Sensitive Data Protection:** Hort automatically ignores content from password managers (like 1Password or Bitwarden) and skips clipboard items marked as "concealed" or "sensitive" by the system.
-*   **App Exclusion:** You can define a list of apps that Hort should completely ignore.
-*   **AI stays local & opt-in:** All AI features use a local Ollama instance, are off by default, and send nothing to any cloud.
-*   **No content in logs:** Captured text, URLs and OCR are never written to the system log (debug builds log lengths only).
-*   **Out of backups:** Hort's data folder is excluded from Time Machine / iCloud backups by default.
-*   **Transparency:** You can see exactly what was captured in the feed and delete anything at any time.
-
----
-
-### How Screenshot Capture Works
-
-Screenshots still land on your Desktop. **This is intentional and correct.**
-
-Hort does not replace the macOS screenshot tool. Instead, it "watches" your Desktop folder like a silent assistant.
-
-1.  **You take a screenshot:** You press `Shift+Cmd+4`. macOS creates a file (e.g., `Screenshot 2026-06-11 at 10.00.00.png`) on your Desktop.
-2.  **Hort notices the file:** Hort sees that a new file starting with "Screenshot" has appeared.
-3.  **Hort creates a "Memory":** It indexes the image, runs OCR (text recognition) so you can search for words inside the image later, and displays it in your dashboard feed.
-4.  **The file stays where it is:** The original file remains on your Desktop. Hort doesn't move or delete your files without permission.
-
-**Why it might not have appeared instantly:**
-*   **Timing:** Hort waits about 0.4 seconds after the file appears to make sure macOS has finished writing the image to disk.
-*   **Permissions:** On the first launch, macOS asks for "Desktop Folder" access. If this was denied, Hort cannot see the files. You can check this in *System Settings > Privacy & Security > Files and Folders*.
-*   **Naming:** Hort looks for files that contain the word "Screenshot" or "Bildschirmfoto" (for German systems). It is designed to work out-of-the-box with standard macOS naming conventions.
-
----
-
-### Where it stores data
-
-Everything lives locally under **`~/Library/Application Support/Hort/`**:
-
-| Path | Contents |
-| --- | --- |
-| `~/Library/Application Support/Hort/database/hort.sqlite` | SQLite database, the source of truth (memories, FTS5 search index, semantic vector index) |
-| `~/Library/Application Support/Hort/assets/` | Full-size captured images |
-| `~/Library/Application Support/Hort/thumbnails/` | Generated card thumbnails |
-| `~/Library/Application Support/Hort/exports/` | Single-memory markdown exports (from the Inspector) |
-
-ZIP exports are written to wherever you choose in the save dialog. Settings
-(capture on/off, privacy toggles, excluded apps) are stored in macOS
-**UserDefaults** under the bundle id `dev.hort.app`.
-
-### Keyboard shortcuts
-
-| Shortcut | Action |
-| --- | --- |
-| ⌘1 / ⌘2 / ⌘3 / ⌘4 | Inbox / All Memories / Favorites / Archive |
-| ⌘A | Select all shown |
-| ⌘F | Search |
-| ⌘L | Ask your memory |
-| ⌘E | Export shown memories |
-| ⌘⌫ | Delete selected memories |
-| ⌘Z | Undo the last delete |
-| Space | Quick Look the selected card |
-| ⌘, | Settings |
-
-### Build & run
-
-Requirements: macOS 14+, Swift toolchain (Xcode command line tools).
+Requirements: macOS 14 or newer and Xcode command line tools.
 
 ```sh
-# Build a proper .app bundle into dist/
-Scripts/build-app.sh
+# Tests plus a local Gitleaks scan when installed
+Scripts/check.sh
 
-# Build and install to /Applications
+# Build a release app into dist/
+Scripts/build-app.sh release
+
+# Build and install into /Applications
 Scripts/build-app.sh release install
 
-# Debug build
-Scripts/build-app.sh debug
-
-# Run the tests
-swift test
-
-# Build a release ZIP for GitHub Releases
+# Create a verified ZIP and SHA-256 checksum
 Scripts/release.sh
 ```
 
-### Tech stack
+See [Development](Docs/DEVELOPMENT.md) for project layout and release details.
+GitHub Actions runs tests and a secret scan for every pull request.
+
+## Technology
 
 Swift · SwiftUI · SQLite via [GRDB](https://github.com/groue/GRDB.swift) ·
-FTS5 full-text search · optional local AI via [Ollama](https://ollama.com)
-(embeddings + LLM, hybrid search & RAG) · English + German localization ·
-native macOS (no Electron, no web views, no cloud).
+FTS5 · local Ollama embeddings and generation · native macOS, with no Electron,
+web views, accounts, or cloud service.
 
-### Project layout
+## Contributing
 
-```
-App/        App entry point
-Core/       Models, theme, engines (memory, files, images), vector math, settings
-Services/   Capture engine, clipboard & screenshot monitors
-AI/         Local AI: Ollama client, autopilot runtime, embedding indexer, RAG engine
-Database/   SQLite setup (GRDB)
-UI/         SwiftUI views (dashboard feed, sidebar, inspector, settings, ask, cards)
-Export/     Markdown + ZIP export
-Tests/      XCTest suite
-Scripts/    build-app.sh, release.sh
-```
-
----
-
-### License
+Focused bug fixes and improvements are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request. Use
+fabricated data in tests and reports; never include real captures or personal
+paths.
 
 Hort is released under the [MIT License](LICENSE).
-
----
-
-*Hort is open source and contributor-friendly. The architecture is meant to
-stay readable and extensible.*

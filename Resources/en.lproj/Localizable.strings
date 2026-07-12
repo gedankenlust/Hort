@@ -33,6 +33,16 @@
 "settings.menubar_icon" = "Show menu bar icon";
 "settings.launch_at_login" = "Launch at login";
 "settings.privacy" = "Privacy";
+"settings.privacy.overview" = "Local data status";
+"settings.privacy.status.capture" = "Background capture";
+"settings.privacy.status.ai" = "Local AI connection";
+"settings.privacy.status.telemetry" = "Telemetry";
+"settings.privacy.status.active" = "Active";
+"settings.privacy.status.paused" = "Paused";
+"settings.privacy.status.disabled" = "Disabled";
+"settings.privacy.status.local_connected" = "Localhost connected";
+"settings.privacy.status.local_offline" = "Localhost offline";
+"settings.privacy.status.none" = "None";
 "settings.privacy.ignore_passwords" = "Ignore password/concealed clipboard";
 "settings.privacy.ignore_passwords_desc" = "Skips items marked sensitive (e.g. password managers)";
 "settings.privacy.screenshot_warning" = "Desktop screenshots are captured regardless of the active application. Manually delete sensitive images from the feed if needed.";
@@ -51,11 +61,13 @@
 "settings.excluded_apps" = "Excluded Apps (Bundle IDs)";
 "settings.excluded_apps.empty" = "No apps excluded";
 "settings.excluded_apps.placeholder" = "com.example.app";
+"settings.excluded_apps.restore_defaults" = "Restore password-manager defaults";
 "settings.storage" = "Data storage";
 "settings.storage.reveal" = "Reveal in Finder";
 "settings.danger_zone" = "Danger Zone";
 "settings.clear_all" = "Clear all memories";
-"settings.clear_all_confirm" = "Are you sure? This cannot be undone.";
+"settings.clear_all_desc" = "Deletes the database entries, captured image copies and thumbnails. Files you exported yourself are preserved.";
+"settings.clear_all_confirm" = "Delete every memory and captured image? Exported files are preserved. This cannot be undone.";
 
 /* Inspector */
 "inspector.select_memory" = "Select a memory";
@@ -131,12 +143,12 @@
 "onboarding.status" = "Ready";
 "onboarding.title" = "Welcome to Hort";
 "onboarding.subtitle" = "Your local, visual memory layer runs in the background and awaits content.";
-"onboarding.step1.title" = "Ingestion & Capture";
-"onboarding.step1.desc" = "Copy text, images or URLs. Take screenshots on your Desktop. Hort captures them silently.";
+"onboarding.step1.title" = "Private Capture";
+"onboarding.step1.desc" = "Hort reacts only to copied content and new Desktop screenshots. Sensitive clipboard types and excluded apps are skipped.";
 "onboarding.step2.title" = "Workspace Sorting";
 "onboarding.step2.desc" = "Create boards in the sidebar. Drag & drop memory cards onto boards, tags or into the Archive.";
-"onboarding.step3.title" = "Obsidian Export";
-"onboarding.step3.desc" = "Export your boards as Obsidian-compatible Markdown ZIP files including all linked image assets.";
+"onboarding.step3.title" = "Local Control";
+"onboarding.step3.desc" = "AI stays optional on localhost. Export portable Markdown ZIPs or delete your stored memories at any time.";
 "onboarding.awaiting" = "Waiting for your first memory…";
 "onboarding.start_capture" = "Start capture";
 "onboarding.stop_capture" = "Stop capture";

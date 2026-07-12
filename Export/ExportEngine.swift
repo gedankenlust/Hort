@@ -3,14 +3,22 @@ import Foundation
 class ExportEngine {
     static let shared = ExportEngine()
 
-    private init() {}
+    private let fileSystem: FileSystemManager
+
+    private convenience init() {
+        self.init(fileSystem: .shared)
+    }
+
+    init(fileSystem: FileSystemManager) {
+        self.fileSystem = fileSystem
+    }
 
     enum ExportError: Error { case zipFailed(Int32) }
 
     /// Single-memory markdown export to the app's exports folder (Inspector action).
     @discardableResult
     func exportToMarkdown(_ object: MemoryObject) throws -> URL {
-        let fileURL = FileSystemManager.shared.exportsURL
+        let fileURL = fileSystem.exportsURL
             .appendingPathComponent(fileName(for: object))
         try markdown(for: object).write(to: fileURL, atomically: true, encoding: .utf8)
         return fileURL
@@ -65,15 +73,15 @@ class ExportEngine {
     // MARK: - Markdown building
 
     private func markdown(for object: MemoryObject, assetRename: [String: String] = [:]) -> String {
-        let tags = object.tags.joined(separator: ", ")
+        let tags = yamlArray(object.tags)
         var md = """
         ---
-        id: \(object.id.uuidString)
-        type: \(object.type.rawValue)
-        created: \(ISO8601DateFormatter().string(from: object.createdAt))
-        source_app: \(object.sourceApp ?? "Unknown")
-        board: \(object.board ?? "")
-        tags: [\(tags)]
+        id: \(yamlString(object.id.uuidString))
+        type: \(yamlString(object.type.rawValue))
+        created: \(yamlString(ISO8601DateFormatter().string(from: object.createdAt)))
+        source_app: \(yamlString(object.sourceApp ?? "Unknown"))
+        board: \(yamlString(object.board ?? ""))
+        tags: \(tags)
         ---
 
         # \(title(for: object))
@@ -97,6 +105,24 @@ class ExportEngine {
             }
         }
         return md
+    }
+
+    /// JSON strings and arrays are valid YAML and safely preserve quotes,
+    /// colons, brackets, Unicode and other frontmatter-sensitive characters.
+    private func yamlString(_ value: String) -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let encoded = String(data: data, encoding: .utf8) else {
+            return "\"\""
+        }
+        return encoded
+    }
+
+    private func yamlArray(_ values: [String]) -> String {
+        guard let data = try? JSONEncoder().encode(values),
+              let encoded = String(data: data, encoding: .utf8) else {
+            return "[]"
+        }
+        return encoded
     }
 
     private func title(for object: MemoryObject) -> String {

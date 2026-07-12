@@ -26,7 +26,13 @@ if [ -z "${VERSION}" ]; then
     exit 1
 fi
 
+if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+    echo "Invalid version '${VERSION}'. Expected a semantic version such as 1.0.1." >&2
+    exit 1
+fi
+
 ZIP="${DIST}/${APP_NAME}-${VERSION}.zip"
+CHECKSUM="${ZIP}.sha256"
 
 if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
     if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -36,8 +42,7 @@ if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
     fi
 fi
 
-echo "==> Testing"
-swift test
+"Scripts/check.sh"
 
 echo "==> Building ${APP_NAME} ${VERSION}"
 "${BUILD_SCRIPT}" release
@@ -45,15 +50,31 @@ echo "==> Building ${APP_NAME} ${VERSION}"
 echo "==> Verifying ad-hoc signature"
 codesign --verify --deep --strict "${APP}"
 
+BUILT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP}/Contents/Info.plist")"
+if [ "${BUILT_VERSION}" != "${VERSION}" ]; then
+    echo "Built app version ${BUILT_VERSION} does not match release version ${VERSION}." >&2
+    exit 1
+fi
+
 echo "==> Creating ${ZIP}"
 rm -f "${ZIP}"
 (cd "${DIST}" && zip -qry "${APP_NAME}-${VERSION}.zip" "${APP_NAME}.app")
 
 echo "==> Checking ZIP contents"
-zipinfo -1 "${ZIP}" | grep -q "^${APP_NAME}.app/Contents/MacOS/${APP_NAME}$"
+if ! zipinfo -1 "${ZIP}" | awk -v expected="${APP_NAME}.app/Contents/MacOS/${APP_NAME}" '
+    $0 == expected { found = 1 }
+    END { exit(found ? 0 : 1) }
+'; then
+    echo "ZIP does not contain the expected app executable." >&2
+    exit 1
+fi
+
+echo "==> Writing SHA-256 checksum"
+(cd "${DIST}" && shasum -a 256 "$(basename "${ZIP}")" > "$(basename "${CHECKSUM}")")
 
 echo "Release artifact ready:"
 echo "  ${ZIP}"
+echo "  ${CHECKSUM}"
 echo
 echo "Create the GitHub release with:"
-echo "  gh release create v${VERSION} ${ZIP} --title \"Hort ${VERSION}\" --notes-file CHANGELOG.md"
+echo "  gh release create v${VERSION} ${ZIP} ${CHECKSUM} --title \"Hort ${VERSION}\" --notes-file CHANGELOG.md"

@@ -23,7 +23,10 @@ let package = Package(
             exclude: [
                 "README.md",
                 "CHANGELOG.md",
+                "CONTRIBUTING.md",
                 "LICENSE",
+                "ROADMAP.md",
+                "SECURITY.md",
                 "Assets",
                 "Scripts",
                 "Tests",

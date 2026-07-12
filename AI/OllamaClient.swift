@@ -58,10 +58,17 @@ struct OllamaEmbeddingResponse: Codable {
 
 class OllamaClient {
     static let shared = OllamaClient()
-    
-    private let baseURL = URL(string: "http://localhost:11434")!
-    
-    private init() {}
+
+    private let baseURL: URL
+    private let session: URLSession
+
+    init(
+        baseURL: URL = URL(string: "http://localhost:11434")!,
+        session: URLSession = .shared
+    ) {
+        self.baseURL = baseURL
+        self.session = session
+    }
     
     /// Queries the local Ollama instance for installed models.
     func fetchModels() async throws -> [String] {
@@ -70,7 +77,7 @@ class OllamaClient {
         request.httpMethod = "GET"
         request.timeoutInterval = 3.0 // Fail fast if Ollama is offline
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
@@ -92,7 +99,7 @@ class OllamaClient {
         let payload = OllamaEmbeddingRequest(model: model, prompt: text)
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -112,7 +119,7 @@ class OllamaClient {
                                             options: OllamaOptions())
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (result, response) = try await URLSession.shared.bytes(for: request)
+        let (result, response) = try await session.bytes(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -165,7 +172,7 @@ class OllamaClient {
                                             options: OllamaOptions(temperature: 0.1))
         request.httpBody = try JSONEncoder().encode(payload)
         
-        let (result, response) = try await URLSession.shared.bytes(for: request)
+        let (result, response) = try await session.bytes(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
@@ -213,7 +220,7 @@ class OllamaClient {
                                             images: [base64])
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (result, response) = try await URLSession.shared.bytes(for: request)
+        let (result, response) = try await session.bytes(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
