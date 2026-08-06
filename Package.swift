@@ -46,12 +46,20 @@ let package = Package(
             resources: [
                 .copy("Assets"),
                 .process("Resources")
+            ],
+            // GRDB 7 requires tools-version 6.1+, but Hort is not yet migrated to
+            // Swift 6 strict concurrency. Stay on language mode 5 until then.
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .testTarget(
             name: "HortTests",
             dependencies: ["Hort"],
-            path: "Tests"
+            path: "Tests",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         )
     ]
 )
