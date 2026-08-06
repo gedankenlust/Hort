@@ -21,6 +21,7 @@ struct DashboardFeedView: View {
     /// Anchor for ⇧-click range selection (the last plain/⌘ click).
     @State private var selectionAnchor: UUID?
     @State private var searchTask: Task<Void, Never>?
+    @State private var isSearchPending = false
     @AppStorage("feedViewMode") private var viewMode: FeedViewMode = .grid
     @State private var newCardIDs: Set<UUID> = []
     @State private var showArchiveOldDialog = false
@@ -114,7 +115,7 @@ struct DashboardFeedView: View {
                 OnboardingView()
             } else {
                 ScrollView {
-                    if isSearchActive && memories.isEmpty {
+                    if isSearchActive && memories.isEmpty && isSearchPending {
                         ProgressView()
                             .progressViewStyle(.circular)
                             .tint(HortColors.accent)
@@ -332,6 +333,7 @@ struct DashboardFeedView: View {
         searchTask?.cancel()
         if isSearchActive {
             let query = searchText
+            isSearchPending = true
             searchTask = Task {
                 // Debounce: avoid embedding the query (an Ollama call) on every
                 // keystroke; only search once typing settles.
@@ -341,9 +343,11 @@ struct DashboardFeedView: View {
                 await MainActor.run {
                     guard !Task.isCancelled, isSearchActive, searchText == query else { return }
                     memories = results
+                    isSearchPending = false
                 }
             }
         } else {
+            isSearchPending = false
             let old = Set(memories.map(\.id))
             let fresh = engine.fetchMemories(for: selection)
             let arrived = Set(fresh.map(\.id)).subtracting(old)

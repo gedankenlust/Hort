@@ -77,17 +77,25 @@ class CaptureEngine: ObservableObject {
         if object.type == .image || object.type == .screenshot {
             guard let contentPath = object.content else { return }
             DispatchQueue.global(qos: .userInitiated).async {
-                if let ocrText = OCRManager.performOCR(on: contentPath) {
-                    #if DEBUG
+                // OCR may return nil for text-free images (photos, diagrams).
+                // Still run Vision Autopilot + embedding enqueue — those are
+                // most valuable precisely when there's no OCR text.
+                let ocrText = OCRManager.performOCR(on: contentPath)
+                #if DEBUG
+                if let ocrText {
                     print("OCR success (\(ocrText.count) chars)")
-                    #endif
-                    DispatchQueue.main.async {
+                } else {
+                    print("OCR returned no text — continuing with Vision/embedding path")
+                }
+                #endif
+                DispatchQueue.main.async {
+                    if let ocrText {
                         MemoryEngine.shared.update(id: objectID) { mut in
                             mut.metadata["ocrText"] = ocrText
                         }
-                        self.autopilotAnalyze(objectID: objectID, content: ocrText, settings: settings, imagePath: contentPath)
-                        self.enqueueEmbedding(objectID)
                     }
+                    self.autopilotAnalyze(objectID: objectID, content: ocrText ?? "", settings: settings, imagePath: contentPath)
+                    self.enqueueEmbedding(objectID)
                 }
             }
         } else if object.type == .text || object.type == .url {

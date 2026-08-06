@@ -132,6 +132,9 @@ class MemoryEngine: ObservableObject {
         }
     }
 
+    /// Removes the DB row and search/vector indexes, but leaves asset files on
+    /// disk so Undo can restore a visual card. Call `purgeAssociatedFiles`
+    /// once the undo window closes without restore.
     func delete(_ object: MemoryObject) {
         do {
             _ = try self.dbQueue.write { db in
@@ -139,7 +142,6 @@ class MemoryEngine: ObservableObject {
                 try deindex(object.id, in: db)
                 try deindexVector(object.id, in: db)
             }
-            deleteAssociatedFiles(for: object.id)
             invalidateEmbeddingCache()
             fetchRecent()
         } catch {
@@ -157,9 +159,6 @@ class MemoryEngine: ObservableObject {
                     try deindexVector(id, in: db)
                 }
             }
-            for id in ids {
-                deleteAssociatedFiles(for: id)
-            }
             invalidateEmbeddingCache()
             fetchRecent()
         } catch {
@@ -167,7 +166,9 @@ class MemoryEngine: ObservableObject {
         }
     }
 
-    private func deleteAssociatedFiles(for id: UUID) {
+    /// Permanently removes asset + thumbnail files for a memory. Called after
+    /// the undo toast expires or is dismissed — not during soft-delete.
+    func purgeAssociatedFiles(for id: UUID) {
         let fm = FileManager.default
         let fileName = "\(id.uuidString).png"
         let assetURL = fileSystem.assetsURL.appendingPathComponent(fileName)
@@ -199,6 +200,34 @@ class MemoryEngine: ObservableObject {
             fetchRecent()
         } catch {
             print("Error renaming board: \(error)")
+        }
+    }
+
+    /// Moves every memory on `name` back to Inbox (clears board + folder).
+    /// Used when a board is deleted so cards stay reachable.
+    func clearBoard(_ name: String) {
+        do {
+            try self.dbQueue.write { db in
+                try db.execute(sql: "UPDATE memoryObject SET board = NULL, folder = NULL WHERE board = ?",
+                               arguments: [name])
+            }
+            fetchRecent()
+        } catch {
+            print("Error clearing board: \(error)")
+        }
+    }
+
+    /// Clears the folder field for memories in `board`/`folder`, leaving them
+    /// on the board. Used when a folder is deleted.
+    func clearFolder(board: String, folder: String) {
+        do {
+            try self.dbQueue.write { db in
+                try db.execute(sql: "UPDATE memoryObject SET folder = NULL WHERE board = ? AND folder = ?",
+                               arguments: [board, folder])
+            }
+            fetchRecent()
+        } catch {
+            print("Error clearing folder: \(error)")
         }
     }
 

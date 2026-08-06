@@ -50,7 +50,7 @@ struct SidebarView: View {
                             count: favoritesCount,
                             isActive: selection == .favorites,
                             action: { selection = .favorites },
-                            dropHandler: { apply($0) { $0.isFavorite = true } })
+                            dropHandler: { apply($0) { $0.isFavorite = true; $0.isArchived = false } })
                 SidebarItem(icon: "archivebox", title: "sidebar.archive",
                             count: archiveCount,
                             isActive: selection == .archive,
@@ -221,11 +221,11 @@ struct SidebarView: View {
                                         accentColor: boardColor)
                                 .contextMenu {
                                     Menu("common.change_color") {
-                                        Button("Cyan") { settings.changeBoardColor(board.name, to: "32D2E0") }
-                                        Button("Grün") { settings.changeBoardColor(board.name, to: "4CD964") }
-                                        Button("Pink") { settings.changeBoardColor(board.name, to: "FF2D55") }
-                                        Button("Orange") { settings.changeBoardColor(board.name, to: "FF9500") }
-                                        Button("Grau") { settings.changeBoardColor(board.name, to: "8E8E93") }
+                                        Button("color.cyan") { settings.changeBoardColor(board.name, to: "32D2E0") }
+                                        Button("color.green") { settings.changeBoardColor(board.name, to: "4CD964") }
+                                        Button("color.pink") { settings.changeBoardColor(board.name, to: "FF2D55") }
+                                        Button("color.orange") { settings.changeBoardColor(board.name, to: "FF9500") }
+                                        Button("color.gray") { settings.changeBoardColor(board.name, to: "8E8E93") }
                                         Button("common.reset") { settings.changeBoardColor(board.name, to: nil) }
                                     }
                                     Button {
@@ -258,7 +258,7 @@ struct SidebarView: View {
                                             indentation: 24)
                                     .contextMenu {
                                         Button(role: .destructive) {
-                                            settings.removeFolder(from: board.name, folderName: folder)
+                                            removeFolder(from: board.name, folderName: folder)
                                         } label: {
                                             Label("sidebar.remove_folder", systemImage: "trash")
                                         }
@@ -293,10 +293,11 @@ struct SidebarView: View {
     // MARK: - Data
 
     /// Boards to show: the user's list, plus any board referenced by a memory
-    /// that isn't in the list yet (so nothing gets orphaned).
+    /// that isn't in the list yet (so nothing gets orphaned). Uses sidebar
+    /// counts (all memories), not just the recent-50 cache.
     private var boardList: [Board] {
         var list = settings.boards
-        let inUse = Set(engine.recentMemories.compactMap { $0.board })
+        let inUse = Set(boardCounts.keys)
         let existingNames = Set(list.map { $0.name })
         for boardName in inUse.sorted() where !existingNames.contains(boardName) {
             list.append(Board(name: boardName))
@@ -335,7 +336,17 @@ struct SidebarView: View {
 
     private func removeBoard(_ name: String) {
         settings.removeBoard(name)
-        if selection == .board(name) { selection = .inbox }
+        engine.clearBoard(name)
+        if case .board(let n) = selection, n == name { selection = .inbox }
+        if case .folder(let board, _) = selection, board == name { selection = .inbox }
+    }
+
+    private func removeFolder(from boardName: String, folderName: String) {
+        settings.removeFolder(from: boardName, folderName: folderName)
+        engine.clearFolder(board: boardName, folder: folderName)
+        if case .folder(let board, let folder) = selection, board == boardName, folder == folderName {
+            selection = .board(boardName)
+        }
     }
 
     private func boardRenameField(for board: String) -> some View {
@@ -559,10 +570,12 @@ struct OllamaIndicator: View {
     private var label: String {
         if runtime.isAnalyzing {
             let queued = runtime.queuedCount
-            return queued > 0 ? "Analysiert… (+\(queued))" : "Analysiert…"
+            return queued > 0
+                ? String(format: L("sidebar.ollama.analyzing_queued"), "\(queued)")
+                : L("sidebar.ollama.analyzing")
         }
-        if runtime.reachable == false { return "Ollama offline" }
-        return "Ollama: \(settings.aiModel)"
+        if runtime.reachable == false { return L("sidebar.ollama.offline") }
+        return String(format: L("sidebar.ollama.model"), settings.aiModel)
     }
 
     var body: some View {

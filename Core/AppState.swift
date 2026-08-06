@@ -56,6 +56,8 @@ final class AppState: ObservableObject {
     }
 
     func stashForUndo(_ objects: [MemoryObject]) {
+        // A new delete closes the previous undo window — purge those files first.
+        commitPendingPurge()
         lastDeleted = objects
         undoDismissWork?.cancel()
         withAnimation { undoToastVisible = true }
@@ -66,17 +68,27 @@ final class AppState: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
     }
 
+    /// Restores soft-deleted memories (DB row + still-on-disk assets).
     func undoDelete() {
+        undoDismissWork?.cancel()
         for object in lastDeleted {
             MemoryEngine.shared.save(object)
         }
         lastDeleted.removeAll()
-        dismissUndo()
+        withAnimation { undoToastVisible = false }
     }
 
+    /// Closes the undo toast without restoring — permanently removes asset files.
     func dismissUndo() {
         undoDismissWork?.cancel()
-        lastDeleted.removeAll()
+        commitPendingPurge()
         withAnimation { undoToastVisible = false }
+    }
+
+    private func commitPendingPurge() {
+        for object in lastDeleted {
+            MemoryEngine.shared.purgeAssociatedFiles(for: object.id)
+        }
+        lastDeleted.removeAll()
     }
 }
