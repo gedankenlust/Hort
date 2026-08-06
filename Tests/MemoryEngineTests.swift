@@ -67,10 +67,53 @@ final class MemoryEngineTests: XCTestCase {
         let imgObj = MemoryObject(id: id, type: .image, content: assetURL.path)
         engine.save(imgObj)
         
+        // Soft-delete: DB row gone, files kept for Undo.
         engine.delete(imgObj)
+        
+        XCTAssertNil(engine.fetch(id: id))
+        XCTAssertTrue(fm.fileExists(atPath: assetURL.path), "assets must survive soft-delete for Undo")
+        XCTAssertTrue(fm.fileExists(atPath: thumbURL.path), "thumbnails must survive soft-delete for Undo")
+
+        // Purge after the undo window closes.
+        engine.purgeAssociatedFiles(for: id)
         
         XCTAssertFalse(fm.fileExists(atPath: assetURL.path))
         XCTAssertFalse(fm.fileExists(atPath: thumbURL.path))
+    }
+
+    func testClearBoardMovesMemoriesToInbox() throws {
+        var obj1 = MemoryObject(type: .text, content: "Board Item 1")
+        obj1.board = "Doomed"
+        obj1.folder = "Sub"
+        engine.save(obj1)
+
+        var obj2 = MemoryObject(type: .text, content: "Other Board")
+        obj2.board = "Keep"
+        engine.save(obj2)
+
+        engine.clearBoard("Doomed")
+
+        let memories = engine.fetchMemories(for: .all)
+        let cleared = memories.first { $0.id == obj1.id }
+        let kept = memories.first { $0.id == obj2.id }
+
+        XCTAssertNil(cleared?.board)
+        XCTAssertNil(cleared?.folder)
+        XCTAssertEqual(kept?.board, "Keep")
+        XCTAssertEqual(engine.fetchMemories(for: .inbox).filter { $0.id == obj1.id }.count, 1)
+    }
+
+    func testClearFolderKeepsBoard() throws {
+        var obj = MemoryObject(type: .text, content: "Folder Item")
+        obj.board = "Projects"
+        obj.folder = "Old"
+        engine.save(obj)
+
+        engine.clearFolder(board: "Projects", folder: "Old")
+
+        let updated = engine.fetch(id: obj.id)
+        XCTAssertEqual(updated?.board, "Projects")
+        XCTAssertNil(updated?.folder)
     }
 
     func testRenameBoard() throws {

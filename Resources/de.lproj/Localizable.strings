@@ -179,3 +179,16 @@
 "common.name" = "Name";
 "common.change_color" = "Farbe ändern";
 "common.reset" = "Zurücksetzen";
+
+/* Board colors */
+"color.cyan" = "Cyan";
+"color.green" = "Grün";
+"color.pink" = "Pink";
+"color.orange" = "Orange";
+"color.gray" = "Grau";
+
+/* Ollama status */
+"sidebar.ollama.analyzing" = "Analysiert…";
+"sidebar.ollama.analyzing_queued" = "Analysiert… (+%@)";
+"sidebar.ollama.offline" = "Ollama offline";
+"sidebar.ollama.model" = "Ollama: %@";

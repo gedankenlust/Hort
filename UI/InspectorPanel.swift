@@ -401,8 +401,14 @@ struct InspectorPanel: View {
     }
 
     /// Moves every selected memory to `board` (nil = back to Inbox) and unarchives it.
+    /// Clears folder so the card isn't left pointing at a folder that doesn't
+    /// exist on the destination board (matches sidebar drag behaviour).
     private func moveSelected(toBoard board: String?) {
-        engine.update(ids: Array(selectedMemories)) { $0.board = board; $0.isArchived = false }
+        engine.update(ids: Array(selectedMemories)) {
+            $0.board = board
+            $0.folder = nil
+            $0.isArchived = false
+        }
         selectedMemories.removeAll()
     }
 
