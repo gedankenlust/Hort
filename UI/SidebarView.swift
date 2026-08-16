@@ -523,7 +523,7 @@ struct StatusIndicator: View {
                     .fill(tint)
                     .frame(width: 7, height: 7)
                     .shadow(color: tint.opacity(0.8), radius: 4)
-                Text(L(statusKey))
+                Text(LocalizedStringKey(statusKey))
                     .font(HortTypography.primary(size: HortTypography.Size.caption, weight: .medium))
                     .foregroundColor(tint)
                 Spacer(minLength: 0)
@@ -544,7 +544,7 @@ struct StatusIndicator: View {
         }
         .buttonStyle(.plain)
         .help(capture.isCapturing ? "Pause capture" : "Resume capture")
-        .accessibilityLabel(L(statusKey))
+        .accessibilityLabel(Text(LocalizedStringKey(statusKey)))
     }
 }
 
