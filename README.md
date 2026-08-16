@@ -90,7 +90,8 @@ Security problems should be reported privately according to
 
 ## Build and test
 
-Requirements: macOS 14 or newer and Xcode command line tools.
+Requirements: macOS 14 or newer, and a Swift 6.1 toolchain (Xcode 16.3 or
+newer) to build from source.
 
 ```sh
 # Tests plus a local Gitleaks scan when installed

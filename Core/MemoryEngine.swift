@@ -177,6 +177,49 @@ class MemoryEngine: ObservableObject {
         try? fm.removeItem(at: thumbURL)
     }
 
+    /// Files younger than this are never swept. A capture writes its image
+    /// before saving the row, so without a grace period a sweep running at that
+    /// exact moment could delete a perfectly good asset.
+    static let orphanGracePeriod: TimeInterval = 600
+
+    /// Deletes asset/thumbnail files that no longer have a memory row. Soft
+    /// delete deliberately leaves files behind so Undo can restore a visual
+    /// card; if the app quits during that window the row is gone for good and
+    /// the files would otherwise linger forever. Called once at launch.
+    func purgeOrphanedFiles(now: Date = Date()) {
+        let fm = FileManager.default
+        let cutoff = now.addingTimeInterval(-Self.orphanGracePeriod)
+
+        let knownIDs: Set<UUID>
+        do {
+            knownIDs = try dbQueue.read { db in Set(try MemoryObject.fetchAll(db).map(\.id)) }
+        } catch {
+            print("Error listing memories for orphan sweep: \(error)")
+            return
+        }
+
+        for directory in [fileSystem.assetsURL, fileSystem.thumbnailsURL] {
+            guard let files = try? fm.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            ) else { continue }
+
+            for file in files {
+                // Only sweep files we created ourselves ("<uuid>.png"); anything
+                // else in the folder is left alone.
+                guard file.pathExtension.lowercased() == "png",
+                      let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+                      !knownIDs.contains(id) else { continue }
+
+                let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate
+                guard let modified, modified < cutoff else { continue }
+
+                try? fm.removeItem(at: file)
+            }
+        }
+    }
+
     func fetch(id: UUID) -> MemoryObject? {
         do {
             return try dbQueue.read { db in

@@ -2,8 +2,9 @@
 
 ## Requirements
 
-- macOS 14 or newer
-- Swift 5.10-compatible toolchain (Xcode command line tools)
+- macOS 14 or newer to run Hort
+- Swift 6.1 toolchain (Xcode 16.3 or newer) to build it — required by
+  GRDB 7, though the package itself still compiles in Swift 5 language mode
 - Optional: Gitleaks for local secret scanning
 
 ## Checks and builds

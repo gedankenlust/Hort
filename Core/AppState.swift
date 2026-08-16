@@ -73,6 +73,11 @@ final class AppState: ObservableObject {
         undoDismissWork?.cancel()
         for object in lastDeleted {
             MemoryEngine.shared.save(object)
+            // `save` rebuilds the FTS row but not the vector, which `delete`
+            // dropped — without this the card is back in keyword search yet
+            // invisible to semantic search and Ask until the next launch.
+            let id = object.id
+            Task { @MainActor in EmbeddingIndexer.shared.enqueue(id) }
         }
         lastDeleted.removeAll()
         withAnimation { undoToastVisible = false }

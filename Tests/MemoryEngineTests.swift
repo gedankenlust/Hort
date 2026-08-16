@@ -103,6 +103,45 @@ final class MemoryEngineTests: XCTestCase {
         XCTAssertEqual(engine.fetchMemories(for: .inbox).filter { $0.id == obj1.id }.count, 1)
     }
 
+    func testPurgeOrphanedFilesRemovesOnlyRowlessAgedFiles() throws {
+        let fm = FileManager.default
+
+        // 1. Aged file with no DB row — the case this sweep exists for
+        //    (app quit while an undo toast was still open).
+        let orphanID = UUID()
+        let orphan = fileSystem.assetsURL.appendingPathComponent("\(orphanID.uuidString).png")
+        try Data("orphan".utf8).write(to: orphan)
+        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)],
+                             ofItemAtPath: orphan.path)
+
+        // 2. Aged file that still has a row — must survive.
+        let liveID = UUID()
+        let live = fileSystem.assetsURL.appendingPathComponent("\(liveID.uuidString).png")
+        try Data("live".utf8).write(to: live)
+        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)],
+                             ofItemAtPath: live.path)
+        engine.save(MemoryObject(id: liveID, type: .image, content: live.path))
+
+        // 3. Rowless but fresh — a capture mid-write looks exactly like this,
+        //    so the grace period must protect it.
+        let freshID = UUID()
+        let fresh = fileSystem.thumbnailsURL.appendingPathComponent("\(freshID.uuidString).png")
+        try Data("fresh".utf8).write(to: fresh)
+
+        // 4. Not one of ours — never touched, whatever its age.
+        let foreign = fileSystem.assetsURL.appendingPathComponent("notes.txt")
+        try Data("keep me".utf8).write(to: foreign)
+        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)],
+                             ofItemAtPath: foreign.path)
+
+        engine.purgeOrphanedFiles()
+
+        XCTAssertFalse(fm.fileExists(atPath: orphan.path), "aged rowless asset should be swept")
+        XCTAssertTrue(fm.fileExists(atPath: live.path), "asset with a memory row must survive")
+        XCTAssertTrue(fm.fileExists(atPath: fresh.path), "in-flight capture must survive the grace period")
+        XCTAssertTrue(fm.fileExists(atPath: foreign.path), "unrelated files must not be touched")
+    }
+
     func testClearFolderKeepsBoard() throws {
         var obj = MemoryObject(type: .text, content: "Folder Item")
         obj.board = "Projects"

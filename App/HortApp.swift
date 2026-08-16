@@ -6,6 +6,12 @@ struct HortApp: App {
         print("🚀 Hort Starting...")
         // Initialize engines
         CaptureEngine.shared.start()
+        // Sweep image files a previous run left behind by quitting mid-undo
+        // (soft delete keeps assets until the toast closes). Off the main
+        // thread since it walks two directories.
+        DispatchQueue.global(qos: .utility).async {
+            MemoryEngine.shared.purgeOrphanedFiles()
+        }
         // Backfill semantic-index embeddings for any memories missing one.
         Task { @MainActor in EmbeddingIndexer.shared.backfill() }
         // Snap stale model settings to installed models so AI features work even
