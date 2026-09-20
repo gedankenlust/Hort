@@ -9,12 +9,17 @@ class ClipboardMonitor: ObservableObject {
     /// Content of the most recent text/url capture, to skip exact duplicates
     /// (e.g. copying the same thing repeatedly) instead of making identical cards.
     private var lastCapturedText: String?
+    /// Frontmost app captured the moment `changeCount` changes — not when the
+    /// 0.5s timer later processes the pasteboard (user may have switched apps).
+    private var pendingSourceApp: NSRunningApplication?
     
     let onNewContent = PassthroughSubject<MemoryObject, Never>()
     
     private init() {}
     
     func start() {
+        // Idempotent: avoid stacking timers (duplicate captures).
+        stop()
         print("📋 ClipboardMonitor: Starting...")
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -37,12 +42,24 @@ class ClipboardMonitor: ObservableObject {
         pasteboard.setString(string, forType: .string)
         lastChangeCount = pasteboard.changeCount
     }
+
+    /// Writes image data (TIFF) without re-capturing. Used when copying an
+    /// image/screenshot card so paste gets pixels, not a filesystem path.
+    func writeWithoutCapture(imageFilePath path: String) {
+        guard let image = NSImage(contentsOfFile: path),
+              let tiff = image.tiffRepresentation else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setData(tiff, forType: .tiff)
+        lastChangeCount = pasteboard.changeCount
+    }
     
     private func checkClipboard() {
         let pasteboard = NSPasteboard.general
-        // print("📋 Checking clipboard... count: \(pasteboard.changeCount)") 
         guard pasteboard.changeCount != lastChangeCount else { return }
         print("📋 Clipboard Change Detected! Count: \(pasteboard.changeCount)")
+        // Snapshot source app immediately — before debounce/process work.
+        pendingSourceApp = NSWorkspace.shared.frontmostApplication
         lastChangeCount = pasteboard.changeCount
         
         processClipboard(pasteboard)
@@ -85,11 +102,14 @@ class ClipboardMonitor: ObservableObject {
         // Privacy gate 1: skip concealed/transient clipboard (e.g. passwords).
         if settings.ignoreConcealed, Self.containsSensitiveType(pasteboard.types) {
             print("🔒 Skipped concealed/transient clipboard")
+            pendingSourceApp = nil
             return
         }
 
-        // Source app — read once, used for the exclusion gate and metadata.
-        let sourceApp = NSWorkspace.shared.frontmostApplication
+        // Use the app that was frontmost when the pasteboard changed — not
+        // whichever app is frontmost by the time we finish processing.
+        let sourceApp = pendingSourceApp ?? NSWorkspace.shared.frontmostApplication
+        pendingSourceApp = nil
 
         // Never re-capture copies made from within Hort itself (e.g. selecting
         // text in the inspector and pressing ⌘C).

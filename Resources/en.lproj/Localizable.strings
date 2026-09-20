@@ -49,6 +49,25 @@
 "settings.ai.title" = "Local AI (Ollama)";
 "settings.ai.enabled" = "Enable local AI analysis";
 "settings.ai.autopilot" = "AI Autopilot (Auto background analysis)";
+"settings.ai.autopilot_organize" = "Autopilot organize";
+"settings.ai.autopilot_organize_desc" = "After analysis, file captures into boards and folders — including items already in Inbox. Tidies in small batches (max 40) so your Mac stays cool; use Tidy more for the rest. Reuses existing boards; creates new ones only when several related items belong together.";
+"settings.ai.autopilot_organize_tidy" = "Tidy Inbox now";
+"settings.ai.autopilot_organize_tidy_more" = "Tidy more";
+"settings.ai.autopilot_organize_pause" = "Pause";
+"settings.ai.autopilot_organize_resume" = "Resume";
+"settings.ai.autopilot_organize_cancel" = "Cancel sorting";
+"settings.ai.autopilot_organize_progress" = "Organizing… %@ left";
+"settings.ai.autopilot_organize_progress_batch" = "Organizing… %@/%@ (%@ left in batch)";
+"settings.ai.autopilot_organize_progress_batch_more" = "Organizing… %@/%@ · %@ still in Inbox";
+"settings.ai.autopilot_organize_paused" = "Paused… %@ left";
+"settings.ai.autopilot_organize_paused_batch" = "Paused… %@/%@ · %@ still in Inbox";
+"settings.ai.autopilot_organize_batch_done" = "Organized %@ · %@ remaining — Tidy more";
+"settings.ai.autopilot_organize_last_filed" = "Last: filed → %@";
+"settings.ai.autopilot_organize_last_filed_folder" = "Last: filed → %@ / %@";
+"settings.ai.autopilot_organize_last_inbox" = "Last: left in Inbox";
+"settings.ai.autopilot_organize_last_deferred" = "Last: waiting for related items";
+"settings.ai.autopilot_organize_last_skipped" = "Last: skipped";
+"settings.ai.autopilot_organize_last_failed" = "Last: organize failed";
 "settings.ai.loading" = "Loading models...";
 "settings.ai.model" = "Model:";
 "settings.ai.offline" = "⚠️ Ollama not reachable at http://localhost:11434. Start Ollama to list models.";
@@ -64,6 +83,7 @@
 "settings.excluded_apps.restore_defaults" = "Restore password-manager defaults";
 "settings.storage" = "Data storage";
 "settings.storage.reveal" = "Reveal in Finder";
+"database.ephemeral_warning" = "Storage unavailable — this session won’t be saved. Quit and check disk permissions.";
 "settings.danger_zone" = "Danger Zone";
 "settings.clear_all" = "Clear all memories";
 "settings.clear_all_desc" = "Deletes the database entries, captured image copies and thumbnails. Files you exported yourself are preserved.";
@@ -190,5 +210,13 @@
 /* Ollama status */
 "sidebar.ollama.analyzing" = "Analyzing…";
 "sidebar.ollama.analyzing_queued" = "Analyzing… (+%@)";
+"sidebar.ollama.organizing" = "Organizing…";
+"sidebar.ollama.organizing_queued" = "Organizing… %@ left";
+"sidebar.ollama.organizing_batch" = "Organizing… %@/%@";
+"sidebar.ollama.organizing_batch_more" = "Organizing… %@/%@ · %@ left";
+"sidebar.ollama.organizing_paused" = "Organize paused";
+"sidebar.ollama.organizing_cancel_help" = "Click to cancel organizing";
+"sidebar.ollama.organized" = "Filed → %@";
+"sidebar.ollama.organized_folder" = "Filed → %@ / %@";
 "sidebar.ollama.offline" = "Ollama offline";
 "sidebar.ollama.model" = "Ollama: %@";

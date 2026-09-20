@@ -556,10 +556,10 @@ struct OllamaIndicator: View {
     /// Re-checks reachability every 15s so a stopped/started Ollama is reflected.
     private let pollTimer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
 
-    /// Dot/accent colour: amber while analyzing, red when offline, accent when
-    /// reachable, muted when not yet checked.
+    /// Dot/accent colour: amber while analyzing or organizing, red when offline,
+    /// accent when reachable, muted when not yet checked.
     private var tint: Color {
-        if runtime.isAnalyzing { return HortColors.warning }
+        if runtime.isAnalyzing || runtime.isOrganizeBusy { return HortColors.warning }
         switch runtime.reachable {
         case .some(true): return HortColors.accent
         case .some(false): return HortColors.danger
@@ -574,16 +574,59 @@ struct OllamaIndicator: View {
                 ? String(format: L("sidebar.ollama.analyzing_queued"), "\(queued)")
                 : L("sidebar.ollama.analyzing")
         }
+        if runtime.isOrganizeBusy {
+            let remaining = runtime.organizeRemaining
+            let outstanding = runtime.organizeInboxOutstanding
+            if runtime.isOrganizePaused {
+                return L("sidebar.ollama.organizing_paused")
+            }
+            if runtime.organizeBatchTotal > 0 {
+                let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+                if outstanding > 0 {
+                    return String(
+                        format: L("sidebar.ollama.organizing_batch_more"),
+                        "\(done)",
+                        "\(runtime.organizeBatchTotal)",
+                        "\(outstanding)"
+                    )
+                }
+                return String(
+                    format: L("sidebar.ollama.organizing_batch"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)"
+                )
+            }
+            return remaining > 1
+                ? String(format: L("sidebar.ollama.organizing_queued"), "\(remaining)")
+                : L("sidebar.ollama.organizing")
+        }
         if runtime.reachable == false { return L("sidebar.ollama.offline") }
+        if case .filed(let board, let folder) = runtime.lastOrganizeOutcome {
+            if let folder, !folder.isEmpty {
+                return String(format: L("sidebar.ollama.organized_folder"), board, folder)
+            }
+            return String(format: L("sidebar.ollama.organized"), board)
+        }
         return String(format: L("sidebar.ollama.model"), settings.aiModel)
     }
 
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            if runtime.isOrganizeBusy {
+                runtime.cancelOrganize()
+            } else {
+                action()
+            }
+        }) {
             HStack(spacing: HortSpacing.sm) {
-                if runtime.isAnalyzing {
+                if runtime.isAnalyzing || (runtime.isOrganizeBusy && !runtime.isOrganizePaused) {
                     ProgressView()
                         .controlSize(.small)
+                        .frame(width: 7, height: 7)
+                } else if runtime.isOrganizeBusy && runtime.isOrganizePaused {
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 9))
+                        .foregroundColor(tint)
                         .frame(width: 7, height: 7)
                 } else {
                     Circle()
@@ -612,12 +655,19 @@ struct OllamaIndicator: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(runtime.lastError.map { "AI error: \($0) - Click to open settings" }
-              ?? "Local AI model - Click to open settings")
+        .help(organizeHelp)
         .accessibilityLabel(label)
         .onAppear { runtime.refreshReachability() }
         .onReceive(pollTimer) { _ in
-            if !runtime.isAnalyzing { runtime.refreshReachability() }
+            if !runtime.isAnalyzing, !runtime.isOrganizeBusy { runtime.refreshReachability() }
         }
+    }
+
+    private var organizeHelp: String {
+        if runtime.isOrganizeBusy {
+            return L("sidebar.ollama.organizing_cancel_help")
+        }
+        return runtime.lastError.map { "AI error: \($0) - Click to open settings" }
+            ?? "Local AI model - Click to open settings"
     }
 }

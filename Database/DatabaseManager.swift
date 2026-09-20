@@ -5,44 +5,53 @@ class DatabaseManager {
     static let shared = DatabaseManager()
     
     var dbQueue: DatabaseQueue
+    /// True when the session is on a temporary in-memory store (disk open or
+    /// schema setup failed). Captures will not survive quit.
+    private(set) var isUsingEphemeralStore = false
     
     init(inMemory: Bool = false) {
-        dbQueue = DatabaseManager.makeQueue(inMemory: inMemory)
+        if inMemory {
+            isUsingEphemeralStore = true
+            dbQueue = DatabaseManager.makeInMemoryQueue()
+            try? setupSchema()
+            return
+        }
+        let opened = DatabaseManager.openOnDiskQueue()
+        dbQueue = opened.queue
+        isUsingEphemeralStore = opened.ephemeral
         do {
             try setupSchema()
         } catch {
             // The on-disk database is unusable (e.g. corrupt or a schema clash).
             // Fall back to a fresh in-memory store so the session stays usable
-            // instead of crashing; data just won't persist until the file is
-            // repaired or removed.
+            // instead of crashing — but flag it so the UI can warn the user.
             print("❌ Schema setup failed: \(error). Falling back to in-memory database.")
             dbQueue = DatabaseManager.makeInMemoryQueue()
+            isUsingEphemeralStore = true
             try? setupSchema()
         }
     }
 
-    /// Opens the on-disk queue, degrading to in-memory if the disk store can't
-    /// be created (missing permissions, full disk, …) rather than crashing.
-    private static func makeQueue(inMemory: Bool) -> DatabaseQueue {
-        if !inMemory {
-            do {
-                let fileManager = FileManager.default
-                let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                let dbFolderURL = appSupportURL
-                    .appendingPathComponent("Hort", isDirectory: true)
-                    .appendingPathComponent("database", isDirectory: true)
+    /// Opens the on-disk queue, or an in-memory one if the disk store can't
+    /// be created (missing permissions, full disk, …).
+    private static func openOnDiskQueue() -> (queue: DatabaseQueue, ephemeral: Bool) {
+        do {
+            let fileManager = FileManager.default
+            let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let dbFolderURL = appSupportURL
+                .appendingPathComponent("Hort", isDirectory: true)
+                .appendingPathComponent("database", isDirectory: true)
 
-                if !fileManager.fileExists(atPath: dbFolderURL.path) {
-                    try fileManager.createDirectory(at: dbFolderURL, withIntermediateDirectories: true)
-                }
-
-                let dbURL = dbFolderURL.appendingPathComponent("hort.sqlite")
-                return try DatabaseQueue(path: dbURL.path)
-            } catch {
-                print("❌ Failed to open on-disk database: \(error). Falling back to in-memory.")
+            if !fileManager.fileExists(atPath: dbFolderURL.path) {
+                try fileManager.createDirectory(at: dbFolderURL, withIntermediateDirectories: true)
             }
+
+            let dbURL = dbFolderURL.appendingPathComponent("hort.sqlite")
+            return (try DatabaseQueue(path: dbURL.path), false)
+        } catch {
+            print("❌ Failed to open on-disk database: \(error). Falling back to in-memory.")
+            return (makeInMemoryQueue(), true)
         }
-        return makeInMemoryQueue()
     }
 
     /// Last-resort in-memory queue. An in-memory SQLite database only fails to

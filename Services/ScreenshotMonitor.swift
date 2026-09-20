@@ -18,6 +18,8 @@ class ScreenshotMonitor {
     }
     
     func start() {
+        // Idempotent: a second start must not leak another FS watcher.
+        stop()
         let desktopURL = fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
         let descriptor = open(desktopURL.path, O_EVTONLY)
         guard descriptor != -1 else { return }
@@ -56,7 +58,11 @@ class ScreenshotMonitor {
                     guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
                     var obj = MemoryObject(type: .screenshot, content: fileURL.path)
                     obj.preview = fileName
-                    obj.thumbnailPath = ImageStore.thumbnail(fromFile: fileURL.path, id: obj.id)
+                    // Copy into Hort's store so the card survives Desktop cleanup.
+                    let stored = ImageStore.persist(fromFile: fileURL.path, id: obj.id)
+                    obj.content = stored.asset ?? fileURL.path
+                    obj.thumbnailPath = stored.thumbnail
+                    obj.metadata["sourcePath"] = fileURL.path
                     self?.onNewScreenshot.send(obj)
                 }
             }

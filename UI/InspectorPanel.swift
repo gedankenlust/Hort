@@ -134,9 +134,7 @@ struct InspectorPanel: View {
                         HortButton(title: LocalizedStringKey("inspector.copy"),
                                    icon: "doc.on.doc",
                                    style: .secondary) {
-                            if let content = memory.content {
-                                ClipboardMonitor.shared.writeWithoutCapture(content)
-                            }
+                            copyMemoryContent(memory)
                         }
                         HortButton(title: LocalizedStringKey("inspector.export"),
                                    icon: "square.and.arrow.up",
@@ -185,6 +183,19 @@ struct InspectorPanel: View {
         return nil
     }
 
+    /// Copies card content: image pixels for visual cards, text otherwise.
+    private func copyMemoryContent(_ memory: MemoryObject) {
+        if memory.type == .image || memory.type == .screenshot {
+            if let path = memory.content, FileManager.default.fileExists(atPath: path) {
+                ClipboardMonitor.shared.writeWithoutCapture(imageFilePath: path)
+                return
+            }
+        }
+        if let content = memory.content, !content.isEmpty {
+            ClipboardMonitor.shared.writeWithoutCapture(content)
+        }
+    }
+
     private func runAIAnalysis(for memory: MemoryObject) {
         analyzing = true
         streamingSummary = ""
@@ -225,6 +236,9 @@ struct InspectorPanel: View {
                 await MainActor.run {
                     analyzing = false
                     streamingSummary = ""
+                    if SettingsStore.shared.semanticEnabled {
+                        EmbeddingIndexer.shared.enqueue(memory.id)
+                    }
                 }
             } catch {
                 await MainActor.run {

@@ -373,6 +373,7 @@ class MemoryEngine: ObservableObject {
                     }
                     all[i].updatedAt = Date()
                     try all[i].save(db)
+                    try self.indexObject(all[i], in: db)
                 }
             }
             fetchRecent()
@@ -390,6 +391,7 @@ class MemoryEngine: ObservableObject {
                     all[i].tags.removeAll { $0 == tag }
                     all[i].updatedAt = Date()
                     try all[i].save(db)
+                    try self.indexObject(all[i], in: db)
                 }
             }
             fetchRecent()
@@ -485,24 +487,25 @@ class MemoryEngine: ObservableObject {
         }
     }
 
-    /// Top semantic matches (non-archived) for a query, for RAG retrieval.
-    /// Empty when semantic search is off, Ollama is down, or nothing is indexed.
+    /// Top matches for a query used by Ask/RAG. Prefers semantic retrieval when
+    /// available; falls back to keyword search so Ask still works when embeddings
+    /// are off, incomplete, or Ollama can't embed.
     func retrieve(for query: String, limit: Int = 6) async -> [MemoryObject] {
-        guard SettingsStore.shared.semanticEnabled,
-              let ids = await semanticSearch(query, limit: limit), !ids.isEmpty else {
-            return []
-        }
-        let rank = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
-        do {
-            return try await dbQueue.read { db in
-                try MemoryObject.fetchAll(db, keys: ids)
-                    .filter { !$0.isArchived }
-                    .sorted { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
+        if SettingsStore.shared.semanticEnabled,
+           let ids = await semanticSearch(query, limit: limit), !ids.isEmpty {
+            let rank = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
+            do {
+                let semantic = try await dbQueue.read { db in
+                    try MemoryObject.fetchAll(db, keys: ids)
+                        .filter { !$0.isArchived }
+                        .sorted { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
+                }
+                if !semantic.isEmpty { return Array(semantic.prefix(limit)) }
+            } catch {
+                print("Retrieve error: \(error)")
             }
-        } catch {
-            print("Retrieve error: \(error)")
-            return []
         }
+        return Array(keywordSearch(query).prefix(limit))
     }
 
     /// Ranks memory ids by cosine similarity to the query's embedding. Returns

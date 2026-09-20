@@ -57,6 +57,25 @@ struct ContentView: View {
                 }
                 .zIndex(2)
             }
+
+            if DatabaseManager.shared.isUsingEphemeralStore && !booting {
+                VStack {
+                    HStack(spacing: HortSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(HortColors.warning)
+                        Text("database.ephemeral_warning")
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textPrimary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, HortSpacing.lg)
+                    .padding(.vertical, HortSpacing.sm)
+                    .background(HortColors.warning.opacity(0.15))
+                    Spacer()
+                }
+                .zIndex(3)
+                .allowsHitTesting(false)
+            }
         }
         .frame(minWidth: 1000, minHeight: 600)
         .background(HortColors.background)

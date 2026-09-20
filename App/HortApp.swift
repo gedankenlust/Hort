@@ -26,16 +26,13 @@ struct HortApp: App {
     private static func validateModelSettings() async {
         guard let models = try? await OllamaClient.shared.fetchModels(), !models.isEmpty else { return }
         let settings = SettingsStore.shared
-        let embeddingHints = ["embed", "bge", "minilm", "gte", "e5", "arctic", "nomic"]
-        func isEmbedding(_ name: String) -> Bool {
-            let lower = name.lowercased()
-            return embeddingHints.contains { lower.contains($0) }
-        }
         if !models.contains(settings.aiModel) {
-            settings.aiModel = models.first(where: { !isEmbedding($0) }) ?? models.first!
+            if let chat = OllamaClient.preferredChatModel(from: models) {
+                settings.aiModel = chat
+            }
         }
         if !models.contains(settings.embeddingModel) {
-            if let embedder = models.first(where: isEmbedding) {
+            if let embedder = models.first(where: OllamaClient.isEmbeddingModel) {
                 settings.embeddingModel = embedder
             }
         }
