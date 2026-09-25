@@ -18,15 +18,21 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            // Two-column split + trailing `.inspector` (not a third NavigationSplit
+            // column). The old content/detail split left the detail pane blank on
+            // macOS because card selection is custom — not NavigationLink-driven —
+            // so the system detail column never bound to the selected memory.
             NavigationSplitView {
                 SidebarView(selection: $app.selection,
                             onOpenSettings: { app.showingSettings = true })
-            } content: {
+            } detail: {
                 DashboardFeedView(selection: app.selection,
                              selectedMemories: $app.selectedMemories)
                     .frame(minWidth: 400)
-            } detail: {
+            }
+            .inspector(isPresented: .constant(true)) {
                 InspectorPanel(selectedMemories: $app.selectedMemories)
+                    .inspectorColumnWidth(min: 280, ideal: HortSizing.inspectorWidth, max: 520)
             }
             .sheet(isPresented: $app.showingSettings) {
                 SettingsView()

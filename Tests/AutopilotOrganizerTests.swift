@@ -186,7 +186,107 @@ final class AutopilotOrganizerTests: XCTestCase {
         XCTAssertEqual(ids.count, 3)
         XCTAssertEqual(ids, Array(memories.prefix(3).map(\.id)))
         XCTAssertEqual(AutopilotOrganizer.unfiledInboxCount(from: memories), 10)
-        XCTAssertEqual(AutopilotOrganizer.maxBackfillBatch, 40)
+        XCTAssertEqual(AutopilotOrganizer.maxBackfillBatch, 10)
+    }
+
+    // MARK: - Local-first heuristics
+
+    func testHeuristicMatchesSuggestedBoard() {
+        let boards = [Board(name: "Recipes", folders: ["Baking"])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["dessert"],
+            summary: "Chocolate cake notes",
+            suggestedBoard: "recipes",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Recipes")
+        XCTAssertEqual(proposal?.confidence ?? 0, 0.92, accuracy: 0.001)
+        XCTAssertFalse(proposal?.createBoard ?? true)
+    }
+
+    func testHeuristicMatchesTagToFolder() {
+        let boards = [Board(name: "Work", folders: ["Design Reviews", "Eng"])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["design reviews", "meeting"],
+            summary: "",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Work")
+        XCTAssertEqual(proposal?.folder, "Design Reviews")
+        XCTAssertFalse(proposal?.createFolder ?? true)
+    }
+
+    func testHeuristicMatchesTagToBoard() {
+        let boards = [Board(name: "Travel", folders: [])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["travel", "flights"],
+            summary: "booking confirmation",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Travel")
+        XCTAssertNil(proposal?.folder)
+    }
+
+    func testHeuristicMatchesSummaryBoardToken() {
+        let boards = [Board(name: "Recipes", folders: [])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["food"],
+            summary: "Saved recipes for weekend baking",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Recipes")
+        XCTAssertGreaterThanOrEqual(proposal?.confidence ?? 0, AutopilotOrganizer.minAssignConfidence)
+    }
+
+    func testHeuristicReturnsNilWithoutCatalogMatch() {
+        let boards = [Board(name: "Work", folders: ["Eng"])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["gardening", "tomato"],
+            summary: "Planting schedule for spring",
+            existingBoards: boards
+        )
+        XCTAssertNil(proposal)
+    }
+
+    func testHeuristicNeverCreatesBoards() {
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: ["brandnewtopic"],
+            summary: "brandnewtopic ideas",
+            suggestedBoard: "Brand New Topic",
+            existingBoards: [Board(name: "Work")]
+        )
+        XCTAssertNil(proposal)
+    }
+
+    // MARK: - Thermal policy
+
+    func testThermalActionNominalAndFairProceed() {
+        if case .proceed(let ns) = AutopilotOrganizer.thermalAction(for: .nominal) {
+            XCTAssertEqual(ns, AutopilotOrganizer.organizeCooldownNanoseconds)
+        } else {
+            XCTFail("expected proceed for nominal")
+        }
+        if case .proceed(let ns) = AutopilotOrganizer.thermalAction(for: .fair) {
+            XCTAssertEqual(ns, AutopilotOrganizer.organizeCooldownFairNanoseconds)
+        } else {
+            XCTFail("expected proceed for fair")
+        }
+    }
+
+    func testThermalActionSeriousAndCriticalPause() {
+        XCTAssertEqual(AutopilotOrganizer.thermalAction(for: .serious), .pauseForHeat)
+        XCTAssertEqual(AutopilotOrganizer.thermalAction(for: .critical), .pauseForHeat)
+    }
+
+    func testChunkIDs() {
+        let ids = (0..<7).map { _ in UUID() }
+        let chunks = AutopilotOrganizer.chunkIDs(ids, size: 3)
+        XCTAssertEqual(chunks.count, 3)
+        XCTAssertEqual(chunks[0].count, 3)
+        XCTAssertEqual(chunks[1].count, 3)
+        XCTAssertEqual(chunks[2].count, 1)
+        XCTAssertEqual(AutopilotOrganizer.chunkIDs([], size: 5), [])
+        XCTAssertEqual(AutopilotOrganizer.maxClassifyBatch, 5)
     }
 
     // MARK: - Ollama response parsing
@@ -216,5 +316,36 @@ final class AutopilotOrganizerTests: XCTestCase {
         CreateFolder: false
         """
         XCTAssertNil(OllamaClient.shared.parseOrganization(raw))
+    }
+
+    func testParseOrganizationBatch() {
+        let a = UUID()
+        let b = UUID()
+        let items = [
+            OrganizationBatchItem(id: a, summary: "one", tags: ["a"], contentPreview: "one"),
+            OrganizationBatchItem(id: b, summary: "two", tags: ["b"], contentPreview: "two")
+        ]
+        let raw = """
+        Item: 1
+        Board: Work
+        Folder: none
+        Confidence: 0.9
+        CreateBoard: false
+        CreateFolder: false
+
+        Item: 2
+        Board: Inbox
+        Folder: none
+        Confidence: 0.2
+        CreateBoard: false
+        CreateFolder: false
+        """
+        let parsed = OllamaClient.shared.parseOrganizationBatch(raw, items: items)
+        XCTAssertEqual(parsed[a]??.board, "Work")
+        guard let proposalB = parsed[b] else {
+            XCTFail("expected key for item 2")
+            return
+        }
+        XCTAssertNil(proposalB)
     }
 }

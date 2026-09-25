@@ -1,7 +1,62 @@
 import SwiftUI
+import AppKit
+
+extension Notification.Name {
+    /// Posted when the Dock icon is clicked while Hort is running but the main
+    /// dashboard window was closed (MenuBarExtra keeps the process alive).
+    static let hortReopenMainWindow = Notification.Name("hortReopenMainWindow")
+}
+
+/// Keeps a live `openWindow` action so Dock-reopen works after the main
+/// WindowGroup view hierarchy has been torn down.
+@MainActor
+final class MainWindowOpener {
+    static let shared = MainWindowOpener()
+    private var open: ((String) -> Void)?
+
+    private init() {}
+
+    func install(_ action: @escaping (String) -> Void) {
+        open = action
+    }
+
+    func openMain() {
+        open?("main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+final class HortAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // MenuBarExtra can leave `flag == true` even when the dashboard is gone,
+        // so don't trust that bit alone — look for a main-sized titled window.
+        let mains = HortAppDelegate.mainWindows(in: sender)
+        if let visible = mains.first(where: { $0.isVisible && !$0.isMiniaturized }) {
+            visible.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else if let miniaturized = mains.first(where: \.isMiniaturized) {
+            miniaturized.deminiaturize(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            NotificationCenter.default.post(name: .hortReopenMainWindow, object: nil)
+            Task { @MainActor in MainWindowOpener.shared.openMain() }
+        }
+        return true
+    }
+
+    private static func mainWindows(in app: NSApplication) -> [NSWindow] {
+        app.windows.filter { window in
+            guard window.styleMask.contains(.titled) else { return false }
+            // Menu bar popover is ~280pt; dashboard min width is 1000.
+            return window.frame.width >= 900
+        }
+    }
+}
 
 @main
 struct HortApp: App {
+    @NSApplicationDelegateAdaptor(HortAppDelegate.self) private var appDelegate
+
     init() {
         print("🚀 Hort Starting...")
         // Initialize engines
@@ -52,6 +107,7 @@ struct HortApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environment(\.locale, effectiveLocale)
+                .background(MainWindowReopenInstaller())
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
@@ -101,6 +157,9 @@ struct HortApp: App {
 
         MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarContent()
+                // Keep reopen wiring alive after the main window is closed —
+                // this scene stays resident while the menu-bar icon is on.
+                .background(MainWindowReopenInstaller())
         } label: {
             HortApp.menuBarIcon
         }
@@ -263,8 +322,28 @@ struct MenuBarContent: View {
     /// the app also naturally dismisses this `.window`-style popover, since it
     /// resigns key status once the main window takes focus.
     private func showMainWindow() {
-        openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
+        MainWindowOpener.shared.install { id in openWindow(id: id) }
+        MainWindowOpener.shared.openMain()
+    }
+}
+
+/// Installs `openWindow` into `MainWindowOpener` and listens for Dock-reopen
+/// notifications. Mounted on both the main window and the menu-bar popover so
+/// a reopen still works after traffic-light close.
+private struct MainWindowReopenInstaller: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .onAppear {
+                MainWindowOpener.shared.install { id in openWindow(id: id) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .hortReopenMainWindow)) { _ in
+                MainWindowOpener.shared.install { id in openWindow(id: id) }
+                MainWindowOpener.shared.openMain()
+            }
     }
 }
 

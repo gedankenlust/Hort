@@ -412,7 +412,10 @@ struct SettingsView: View {
 
                                     if runtime.isOrganizeBusy {
                                         HStack(spacing: HortSpacing.sm) {
-                                            if runtime.isOrganizePaused {
+                                            if runtime.isOrganizeThermalPaused {
+                                                Image(systemName: "thermometer.medium")
+                                                    .foregroundColor(HortColors.warning)
+                                            } else if runtime.isOrganizePaused {
                                                 Image(systemName: "pause.circle.fill")
                                                     .foregroundColor(HortColors.warning)
                                             } else {
@@ -425,7 +428,13 @@ struct SettingsView: View {
                                         }
 
                                         HStack(spacing: HortSpacing.sm) {
-                                            if runtime.isOrganizePaused {
+                                            if runtime.isOrganizeThermalPaused {
+                                                // Thermal pause auto-resumes; still allow Cancel.
+                                                Text(LocalizedStringKey("settings.ai.autopilot_organize_thermal_hint"))
+                                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                                    .foregroundColor(HortColors.textTertiary)
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            } else if runtime.isOrganizePaused {
                                                 HortButton(
                                                     title: "settings.ai.autopilot_organize_resume",
                                                     icon: "play.fill",
@@ -575,6 +584,18 @@ struct SettingsView: View {
     private var organizeProgressLabel: String {
         let remaining = runtime.organizeRemaining
         let outstanding = runtime.organizeInboxOutstanding
+        if runtime.isOrganizeThermalPaused {
+            if runtime.organizeBatchTotal > 0 {
+                let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+                return String(
+                    format: L("settings.ai.autopilot_organize_thermal_batch"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            return String(format: L("settings.ai.autopilot_organize_thermal"), "\(remaining)")
+        }
         if runtime.isOrganizePaused {
             if runtime.organizeBatchTotal > 0 {
                 let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)

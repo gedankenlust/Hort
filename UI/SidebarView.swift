@@ -577,6 +577,9 @@ struct OllamaIndicator: View {
         if runtime.isOrganizeBusy {
             let remaining = runtime.organizeRemaining
             let outstanding = runtime.organizeInboxOutstanding
+            if runtime.isOrganizeThermalPaused {
+                return L("sidebar.ollama.organizing_thermal")
+            }
             if runtime.isOrganizePaused {
                 return L("sidebar.ollama.organizing_paused")
             }
@@ -622,6 +625,11 @@ struct OllamaIndicator: View {
                 if runtime.isAnalyzing || (runtime.isOrganizeBusy && !runtime.isOrganizePaused) {
                     ProgressView()
                         .controlSize(.small)
+                        .frame(width: 7, height: 7)
+                } else if runtime.isOrganizeBusy && runtime.isOrganizeThermalPaused {
+                    Image(systemName: "thermometer.medium")
+                        .font(.system(size: 9))
+                        .foregroundColor(tint)
                         .frame(width: 7, height: 7)
                 } else if runtime.isOrganizeBusy && runtime.isOrganizePaused {
                     Image(systemName: "pause.circle.fill")

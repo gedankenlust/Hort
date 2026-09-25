@@ -50,7 +50,7 @@
 "settings.ai.enabled" = "Enable local AI analysis";
 "settings.ai.autopilot" = "AI Autopilot (Auto background analysis)";
 "settings.ai.autopilot_organize" = "Autopilot organize";
-"settings.ai.autopilot_organize_desc" = "After analysis, file captures into boards and folders — including items already in Inbox. Tidies in small batches (max 40) so your Mac stays cool; use Tidy more for the rest. Reuses existing boards; creates new ones only when several related items belong together.";
+"settings.ai.autopilot_organize_desc" = "After analysis, file captures into boards and folders — including Inbox. Prefers local matching from tags/summaries (no model). Otherwise tidies in tiny batches (max 10) with cool-downs, and pauses if your Mac runs hot. Use Tidy more for the next batch.";
 "settings.ai.autopilot_organize_tidy" = "Tidy Inbox now";
 "settings.ai.autopilot_organize_tidy_more" = "Tidy more";
 "settings.ai.autopilot_organize_pause" = "Pause";
@@ -61,6 +61,9 @@
 "settings.ai.autopilot_organize_progress_batch_more" = "Organizing… %@/%@ · %@ still in Inbox";
 "settings.ai.autopilot_organize_paused" = "Paused… %@ left";
 "settings.ai.autopilot_organize_paused_batch" = "Paused… %@/%@ · %@ still in Inbox";
+"settings.ai.autopilot_organize_thermal" = "Paused for heat… %@ left";
+"settings.ai.autopilot_organize_thermal_batch" = "Paused for heat… %@/%@ · %@ still in Inbox";
+"settings.ai.autopilot_organize_thermal_hint" = "Waiting for your Mac to cool — resumes automatically.";
 "settings.ai.autopilot_organize_batch_done" = "Organized %@ · %@ remaining — Tidy more";
 "settings.ai.autopilot_organize_last_filed" = "Last: filed → %@";
 "settings.ai.autopilot_organize_last_filed_folder" = "Last: filed → %@ / %@";
@@ -215,6 +218,7 @@
 "sidebar.ollama.organizing_batch" = "Organizing… %@/%@";
 "sidebar.ollama.organizing_batch_more" = "Organizing… %@/%@ · %@ left";
 "sidebar.ollama.organizing_paused" = "Organize paused";
+"sidebar.ollama.organizing_thermal" = "Paused for heat";
 "sidebar.ollama.organizing_cancel_help" = "Click to cancel organizing";
 "sidebar.ollama.organized" = "Filed → %@";
 "sidebar.ollama.organized_folder" = "Filed → %@ / %@";

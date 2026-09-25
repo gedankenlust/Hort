@@ -33,6 +33,22 @@ enum OrganizeOutcome: Equatable {
     case failed
 }
 
+/// How organize should behave given the Mac's current thermal pressure.
+enum OrganizeThermalAction: Equatable {
+    /// Safe to call the local model; wait this long *after* an LLM classify.
+    case proceed(cooldownNanoseconds: UInt64)
+    /// Skip / wait — machine is too hot for another Ollama round-trip.
+    case pauseForHeat
+}
+
+/// One inbox item destined for a batched classify prompt (no capture secrets beyond preview).
+struct OrganizationBatchItem: Equatable {
+    var id: UUID
+    var summary: String
+    var tags: [String]
+    var contentPreview: String
+}
+
 /// Pure organization logic: normalize names, reuse existing boards/folders,
 /// and only create new ones when confidence and related-item gates pass.
 /// Kept free of Ollama / UI so it can be unit-tested with fabricated proposals.
@@ -49,9 +65,123 @@ enum AutopilotOrganizer {
     static let maxFolderNameLength = 40
     static let minNameLength = 2
     /// Hard cap per tidy/backfill wave — never enqueue the whole Inbox at once.
-    static let maxBackfillBatch = 40
-    /// Brief pause between organize Ollama calls to ease thermal load.
-    static let organizeCooldownNanoseconds: UInt64 = 750_000_000
+    static let maxBackfillBatch = 10
+    /// Max items per single Ollama classify prompt (cuts round-trips).
+    static let maxClassifyBatch = 5
+    /// Baseline pause after an organize LLM call (nominal thermal).
+    static let organizeCooldownNanoseconds: UInt64 = 2_500_000_000
+    /// Longer pause when thermal state is already `.fair`.
+    static let organizeCooldownFairNanoseconds: UInt64 = 3_500_000_000
+    /// How often to re-check thermal state while paused for heat.
+    static let thermalPollNanoseconds: UInt64 = 1_000_000_000
+
+    /// Maps `ProcessInfo` thermal state → cool-down or pause-for-heat.
+    static func thermalAction(for state: ProcessInfo.ThermalState) -> OrganizeThermalAction {
+        switch state {
+        case .nominal:
+            return .proceed(cooldownNanoseconds: organizeCooldownNanoseconds)
+        case .fair:
+            return .proceed(cooldownNanoseconds: organizeCooldownFairNanoseconds)
+        case .serious, .critical:
+            return .pauseForHeat
+        @unknown default:
+            return .proceed(cooldownNanoseconds: organizeCooldownFairNanoseconds)
+        }
+    }
+
+    /// Splits `ids` into chunks of `size` (last chunk may be smaller).
+    static func chunkIDs(_ ids: [UUID], size: Int) -> [[UUID]] {
+        guard size > 0, !ids.isEmpty else { return ids.isEmpty ? [] : [ids] }
+        var result: [[UUID]] = []
+        var index = 0
+        while index < ids.count {
+            let end = min(index + size, ids.count)
+            result.append(Array(ids[index..<end]))
+            index = end
+        }
+        return result
+    }
+
+    /// Local-only placement from tags / deferred suggestion / summary tokens.
+    /// Never creates boards or folders — only reuses the existing catalog.
+    /// Returns nil when heuristics can't confidently match (caller may ask the LLM).
+    static func heuristicProposal(
+        tags: [String],
+        summary: String = "",
+        suggestedBoard: String? = nil,
+        existingBoards: [Board]
+    ) -> OrganizationProposal? {
+        guard !existingBoards.isEmpty else { return nil }
+
+        let cleanTags = tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !MemoryEngine.isJunkTag($0) }
+
+        // 1. Deferred suggestion that already exists in the catalog.
+        if let suggested = suggestedBoard?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !suggested.isEmpty,
+           let board = matchBoard(suggested, in: existingBoards) {
+            return OrganizationProposal(
+                board: board.name,
+                folder: bestFolder(from: cleanTags, on: board),
+                confidence: 0.92,
+                createBoard: false,
+                createFolder: false
+            )
+        }
+
+        // 2. Tag matches a folder under a known board (most specific).
+        for tag in cleanTags {
+            for board in existingBoards {
+                if let folder = matchFolder(tag, in: board.folders) {
+                    return OrganizationProposal(
+                        board: board.name,
+                        folder: folder,
+                        confidence: 0.88,
+                        createBoard: false,
+                        createFolder: false
+                    )
+                }
+            }
+        }
+
+        // 3. Tag matches a board name.
+        for tag in cleanTags {
+            if let board = matchBoard(tag, in: existingBoards) {
+                return OrganizationProposal(
+                    board: board.name,
+                    folder: nil,
+                    confidence: 0.85,
+                    createBoard: false,
+                    createFolder: false
+                )
+            }
+        }
+
+        // 4. Summary (or tag bag) contains a board name token — prefer longest key.
+        let haystack = normalizeKey(summary + " " + cleanTags.joined(separator: " "))
+        guard !haystack.isEmpty else { return nil }
+
+        var best: (board: Board, keyLength: Int)?
+        for board in existingBoards {
+            let key = normalizeKey(board.name)
+            guard key.count >= 3, haystack.contains(key) else { continue }
+            if best == nil || key.count > best!.keyLength {
+                best = (board, key.count)
+            }
+        }
+        if let match = best {
+            return OrganizationProposal(
+                board: match.board.name,
+                folder: bestFolder(from: cleanTags, on: match.board),
+                confidence: 0.72,
+                createBoard: false,
+                createFolder: false
+            )
+        }
+
+        return nil
+    }
 
     /// Unfiled inbox candidates for organize backfill: `board == nil`, not archived.
     /// Stable oldest-first so related clusters tend to land before newer strays.
@@ -284,6 +414,15 @@ enum AutopilotOrganizer {
     }
 
     // MARK: - Private
+
+    private static func bestFolder(from tags: [String], on board: Board) -> String? {
+        for tag in tags {
+            if let folder = matchFolder(tag, in: board.folders) {
+                return folder
+            }
+        }
+        return nil
+    }
 
     private static func decideExistingBoard(
         matched: Board,

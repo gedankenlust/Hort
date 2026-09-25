@@ -3,7 +3,6 @@ import AppKit
 
 struct InspectorPanel: View {
     @Binding var selectedMemories: Set<UUID>
-    @State private var memory: MemoryObject? = nil
 
     @ObservedObject private var engine = MemoryEngine.shared
     @ObservedObject private var settings = SettingsStore.shared
@@ -15,11 +14,21 @@ struct InspectorPanel: View {
     @State private var synthesisResult: String? = nil
     @State private var synthesizing = false
 
+    /// Resolve the selected card directly from the binding + DB. Caching in
+    /// `@State` via `onChange` left the inspector stuck on the empty state when
+    /// the panel lived in a NavigationSplitView detail column that did not
+    /// reliably receive Set change notifications.
+    private var singleSelectedMemory: MemoryObject? {
+        _ = engine.dataVersion
+        guard selectedMemories.count == 1, let id = selectedMemories.first else { return nil }
+        return engine.fetch(id: id)
+    }
+
     var body: some View {
         Group {
             if selectedMemories.count > 1 {
                 multiSelectState
-            } else if let memory = memory, selectedMemories.count == 1 {
+            } else if let memory = singleSelectedMemory {
                 detail(for: memory)
             } else {
                 emptyState
@@ -28,19 +37,12 @@ struct InspectorPanel: View {
         .frame(minWidth: HortSizing.inspectorWidth)
         .frame(maxHeight: .infinity)
         .background(HortColors.surface)
-        .onChange(of: selectedMemories) { _, newSelection in
-            if newSelection.count == 1, let id = newSelection.first {
-                memory = engine.fetch(id: id)
-            } else {
-                memory = nil
-            }
+        .onChange(of: selectedMemories) { _, _ in
             synthesisResult = nil
             synthesizing = false
-        }
-        .onChange(of: engine.dataVersion) { _, _ in
-            if selectedMemories.count == 1, let id = selectedMemories.first {
-                memory = engine.fetch(id: id)
-            }
+            aiError = nil
+            analyzing = false
+            streamingSummary = ""
         }
     }
 
@@ -102,24 +104,22 @@ struct InspectorPanel: View {
                     }
                 }
 
-                if let content = memory.content, !content.isEmpty, memory.type != .image, memory.type != .screenshot {
+                if memory.type == .image || memory.type == .screenshot {
                     section(LocalizedStringKey("inspector.content")) {
-                        SelectableText(text: content)
-                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
-                            .padding(HortSpacing.md)
-                            .background(HortColors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                        imagePreview(for: memory)
                     }
-                }
-
-                if (memory.type == .image || memory.type == .screenshot),
-                   let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
-                    section(LocalizedStringKey("inspector.ocr_text")) {
-                        SelectableText(text: ocrText)
-                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
-                            .padding(HortSpacing.md)
-                            .background(HortColors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                    if let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
+                        section(LocalizedStringKey("inspector.ocr_text")) {
+                            contentBox {
+                                SelectableText(text: ocrText)
+                            }
+                        }
+                    }
+                } else if let content = memory.content, !content.isEmpty {
+                    section(LocalizedStringKey("inspector.content")) {
+                        contentBox {
+                            SelectableText(text: content)
+                        }
                     }
                 }
 
@@ -225,7 +225,7 @@ struct InspectorPanel: View {
                         for tag in result.tags where !updatedMemory.tags.contains(tag) {
                             updatedMemory.tags.append(tag)
                         }
-                        self.memory = engine.update(updatedMemory) { _ in }
+                        _ = engine.update(updatedMemory) { _ in }
                     }
                 }
                 if let path = imagePath, FileManager.default.fileExists(atPath: path) {
@@ -456,6 +456,58 @@ struct InspectorPanel: View {
         }
     }
 
+    /// Fixed-height content well so `SelectableText` (NSScrollView) gets a real
+    /// proposed size instead of collapsing inside the outer ScrollView.
+    @ViewBuilder
+    private func contentBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: 160)
+            .padding(HortSpacing.md)
+            .background(HortColors.background)
+            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+    }
+
+    /// Full-asset / thumbnail preview for image and screenshot cards.
+    @ViewBuilder
+    private func imagePreview(for memory: MemoryObject) -> some View {
+        let path = imageAssetPath(for: memory)
+        Group {
+            if let path, let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: 280)
+            } else {
+                HStack(spacing: HortSpacing.sm) {
+                    Image(systemName: iconName(for: memory.type))
+                        .foregroundColor(HortColors.accent)
+                    Text(L("dashboard.image_asset"))
+                        .font(HortTypography.primary(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.textSecondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 80, alignment: .center)
+            }
+        }
+        .padding(HortSpacing.md)
+        .frame(maxWidth: .infinity)
+        .background(HortColors.background)
+        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+    }
+
+    private func imageAssetPath(for memory: MemoryObject) -> String? {
+        if let content = memory.content,
+           FileManager.default.fileExists(atPath: content) {
+            return content
+        }
+        if let thumb = memory.thumbnailPath,
+           FileManager.default.fileExists(atPath: thumb) {
+            return thumb
+        }
+        return nil
+    }
+
     @ViewBuilder
     private func aiAnalysisSection(for memory: MemoryObject) -> some View {
         section(LocalizedStringKey("inspector.ai_analysis")) {
@@ -554,8 +606,7 @@ struct InspectorPanel: View {
     }
 
     private func toggleFavorite(_ memory: MemoryObject) {
-        let updated = engine.update(memory) { $0.isFavorite.toggle() }
-        self.memory = updated
+        _ = engine.update(memory) { $0.isFavorite.toggle() }
     }
 
     @ViewBuilder
@@ -590,11 +641,11 @@ struct InspectorPanel: View {
             newTag = ""
             return
         }
-        self.memory = engine.update(memory) { $0.tags.append(tag) }
+        _ = engine.update(memory) { $0.tags.append(tag) }
         newTag = ""
     }
 
     private func removeTag(_ tag: String, from memory: MemoryObject) {
-        self.memory = engine.update(memory) { $0.tags.removeAll { $0 == tag } }
+        _ = engine.update(memory) { $0.tags.removeAll { $0 == tag } }
     }
 }
