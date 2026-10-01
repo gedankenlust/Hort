@@ -218,7 +218,14 @@ struct DashboardFeedView: View {
     }
 
     /// Copies a card's content to the clipboard without re-capturing it.
+    /// Image/screenshot cards copy pixel data; everything else copies text.
     private func copyToClipboard(_ memory: MemoryObject) {
+        if memory.type == .image || memory.type == .screenshot {
+            if let path = memory.content, FileManager.default.fileExists(atPath: path) {
+                ClipboardMonitor.shared.writeWithoutCapture(imageFilePath: path)
+                return
+            }
+        }
         guard let content = memory.content, !content.isEmpty else { return }
         ClipboardMonitor.shared.writeWithoutCapture(content)
     }
@@ -592,11 +599,12 @@ struct DashboardFeedView: View {
             NSWorkspace.shared.open(url)
             return
         }
+        // Prefer the full asset over the thumbnail so Space shows the real image.
         var fileURL: URL?
-        if let path = memory.thumbnailPath, FileManager.default.fileExists(atPath: path) {
-            fileURL = URL(fileURLWithPath: path)
-        } else if let content = memory.content, FileManager.default.fileExists(atPath: content) {
+        if let content = memory.content, FileManager.default.fileExists(atPath: content) {
             fileURL = URL(fileURLWithPath: content)
+        } else if let path = memory.thumbnailPath, FileManager.default.fileExists(atPath: path) {
+            fileURL = URL(fileURLWithPath: path)
         }
         guard let url = fileURL else { return }
         NSWorkspace.shared.open(url)

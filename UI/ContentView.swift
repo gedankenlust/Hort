@@ -18,15 +18,21 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            // Two-column split + trailing `.inspector` (not a third NavigationSplit
+            // column). The old content/detail split left the detail pane blank on
+            // macOS because card selection is custom — not NavigationLink-driven —
+            // so the system detail column never bound to the selected memory.
             NavigationSplitView {
                 SidebarView(selection: $app.selection,
                             onOpenSettings: { app.showingSettings = true })
-            } content: {
+            } detail: {
                 DashboardFeedView(selection: app.selection,
                              selectedMemories: $app.selectedMemories)
                     .frame(minWidth: 400)
-            } detail: {
+            }
+            .inspector(isPresented: .constant(true)) {
                 InspectorPanel(selectedMemories: $app.selectedMemories)
+                    .inspectorColumnWidth(min: 280, ideal: HortSizing.inspectorWidth, max: 520)
             }
             .sheet(isPresented: $app.showingSettings) {
                 SettingsView()
@@ -56,6 +62,25 @@ struct ContentView: View {
                         .padding(.bottom, HortSpacing.xxl)
                 }
                 .zIndex(2)
+            }
+
+            if DatabaseManager.shared.isUsingEphemeralStore && !booting {
+                VStack {
+                    HStack(spacing: HortSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(HortColors.warning)
+                        Text("database.ephemeral_warning")
+                            .font(HortTypography.primary(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textPrimary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, HortSpacing.lg)
+                    .padding(.vertical, HortSpacing.sm)
+                    .background(HortColors.warning.opacity(0.15))
+                    Spacer()
+                }
+                .zIndex(3)
+                .allowsHitTesting(false)
             }
         }
         .frame(minWidth: 1000, minHeight: 600)

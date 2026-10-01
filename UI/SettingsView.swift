@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var capture = CaptureEngine.shared
     @ObservedObject private var indexer = EmbeddingIndexer.shared
+    @ObservedObject private var runtime = AIRuntime.shared
     @Environment(\.dismiss) private var dismiss
     /// Same UserDefaults key as `HortApp.showMenuBarIcon` — kept as a separate
     /// `@AppStorage` rather than a `SettingsStore` property so toggling it can't
@@ -374,6 +375,108 @@ struct SettingsView: View {
                         }
                         .toggleStyle(.switch)
                         .tint(HortColors.accent)
+                        .onChange(of: settings.aiAutopilot) { _, on in
+                            if on, settings.aiAutopilotOrganize {
+                                runtime.backfillOrganize()
+                            }
+                        }
+
+                        if settings.aiAutopilot {
+                            Toggle(isOn: $settings.aiAutopilotOrganize) {
+                                VStack(alignment: .leading, spacing: HortSpacing.xs) {
+                                    Text(LocalizedStringKey("settings.ai.autopilot_organize"))
+                                        .foregroundColor(HortColors.textPrimary)
+                                    Text(LocalizedStringKey("settings.ai.autopilot_organize_desc"))
+                                        .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                        .foregroundColor(HortColors.textSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .tint(HortColors.accent)
+                            .onChange(of: settings.aiAutopilotOrganize) { _, on in
+                                if on { runtime.backfillOrganize() }
+                            }
+
+                            if settings.aiAutopilotOrganize {
+                                VStack(alignment: .leading, spacing: HortSpacing.sm) {
+                                    if !runtime.isOrganizeBusy {
+                                        HortButton(
+                                            title: LocalizedStringKey(tidyButtonKey),
+                                            icon: "tray.full",
+                                            style: .secondary
+                                        ) {
+                                            runtime.backfillOrganize()
+                                        }
+                                    }
+
+                                    if runtime.isOrganizeBusy {
+                                        HStack(spacing: HortSpacing.sm) {
+                                            if runtime.isOrganizeThermalPaused {
+                                                Image(systemName: "thermometer.medium")
+                                                    .foregroundColor(HortColors.warning)
+                                            } else if runtime.isOrganizePaused {
+                                                Image(systemName: "pause.circle.fill")
+                                                    .foregroundColor(HortColors.warning)
+                                            } else {
+                                                ProgressView().controlSize(.small)
+                                            }
+                                            Text(organizeProgressLabel)
+                                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                                .foregroundColor(HortColors.textSecondary)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+
+                                        HStack(spacing: HortSpacing.sm) {
+                                            if runtime.isOrganizeThermalPaused {
+                                                // Thermal pause auto-resumes; still allow Cancel.
+                                                Text(LocalizedStringKey("settings.ai.autopilot_organize_thermal_hint"))
+                                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                                    .foregroundColor(HortColors.textTertiary)
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            } else if runtime.isOrganizePaused {
+                                                HortButton(
+                                                    title: "settings.ai.autopilot_organize_resume",
+                                                    icon: "play.fill",
+                                                    style: .secondary
+                                                ) {
+                                                    runtime.resumeOrganize()
+                                                }
+                                            } else {
+                                                HortButton(
+                                                    title: "settings.ai.autopilot_organize_pause",
+                                                    icon: "pause.fill",
+                                                    style: .secondary
+                                                ) {
+                                                    runtime.pauseOrganize()
+                                                }
+                                            }
+                                            HortButton(
+                                                title: "settings.ai.autopilot_organize_cancel",
+                                                icon: "xmark",
+                                                style: .destructive
+                                            ) {
+                                                runtime.cancelOrganize()
+                                            }
+                                        }
+                                    } else if runtime.organizeInboxOutstanding > 0,
+                                              runtime.organizeBatchDone > 0 {
+                                        Text(organizeBatchDoneLabel)
+                                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                            .foregroundColor(HortColors.textSecondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    } else if let outcome = runtime.lastOrganizeOutcome,
+                                              let line = organizeOutcomeLabel(outcome) {
+                                        Text(line)
+                                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                            .foregroundColor(HortColors.textSecondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                .padding(.leading, HortSpacing.sm)
+                                .onAppear { runtime.refreshOrganizeOutstanding() }
+                            }
+                        }
 
                         if loadingModels {
                             HStack(spacing: HortSpacing.sm) {
@@ -469,6 +572,90 @@ struct SettingsView: View {
         }
     }
 
+    /// Tidy vs continue-later label when Inbox still has unfiled items outside the last batch.
+    private var tidyButtonKey: String {
+        if runtime.organizeInboxOutstanding > 0, runtime.organizeBatchDone > 0 {
+            return "settings.ai.autopilot_organize_tidy_more"
+        }
+        return "settings.ai.autopilot_organize_tidy"
+    }
+
+    /// Progress line for an in-flight organize wave — board names only, never content.
+    private var organizeProgressLabel: String {
+        let remaining = runtime.organizeRemaining
+        let outstanding = runtime.organizeInboxOutstanding
+        if runtime.isOrganizeThermalPaused {
+            if runtime.organizeBatchTotal > 0 {
+                let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+                return String(
+                    format: L("settings.ai.autopilot_organize_thermal_batch"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            return String(format: L("settings.ai.autopilot_organize_thermal"), "\(remaining)")
+        }
+        if runtime.isOrganizePaused {
+            if runtime.organizeBatchTotal > 0 {
+                let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+                return String(
+                    format: L("settings.ai.autopilot_organize_paused_batch"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            return String(format: L("settings.ai.autopilot_organize_paused"), "\(remaining)")
+        }
+        if runtime.organizeBatchTotal > 0 {
+            let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+            if outstanding > 0 {
+                return String(
+                    format: L("settings.ai.autopilot_organize_progress_batch_more"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            return String(
+                format: L("settings.ai.autopilot_organize_progress_batch"),
+                "\(done)",
+                "\(runtime.organizeBatchTotal)",
+                "\(remaining)"
+            )
+        }
+        return String(format: L("settings.ai.autopilot_organize_progress"), "\(remaining)")
+    }
+
+    private var organizeBatchDoneLabel: String {
+        String(
+            format: L("settings.ai.autopilot_organize_batch_done"),
+            "\(runtime.organizeBatchDone)",
+            "\(runtime.organizeInboxOutstanding)"
+        )
+    }
+
+    private func organizeOutcomeLabel(_ outcome: OrganizeOutcome) -> String? {
+        switch outcome {
+        case .filed(let board, let folder):
+            if let folder, !folder.isEmpty {
+                return String(format: L("settings.ai.autopilot_organize_last_filed_folder"), board, folder)
+            }
+            return String(format: L("settings.ai.autopilot_organize_last_filed"), board)
+        case .leftInbox:
+            return L("settings.ai.autopilot_organize_last_inbox")
+        case .deferred:
+            return L("settings.ai.autopilot_organize_last_deferred")
+        case .skipped:
+            return L("settings.ai.autopilot_organize_last_skipped")
+        case .alreadyFiled:
+            return nil
+        case .failed:
+            return L("settings.ai.autopilot_organize_last_failed")
+        }
+    }
+
     private func loadOllamaModels() async {
         loadingModels = true
         do {
@@ -476,7 +663,9 @@ struct SettingsView: View {
             availableModels = models
             ollamaOnline = true
             if !models.isEmpty && !models.contains(settings.aiModel) {
-                settings.aiModel = models.first!
+                if let chat = OllamaClient.preferredChatModel(from: models) {
+                    settings.aiModel = chat
+                }
             }
         } catch {
             ollamaOnline = false

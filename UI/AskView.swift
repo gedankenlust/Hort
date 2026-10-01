@@ -284,7 +284,11 @@ struct AskView: View {
         Task {
             if let models = try? await OllamaClient.shared.fetchModels(),
                !models.isEmpty, !models.contains(settings.aiModel) {
-                await MainActor.run { settings.aiModel = models.first! }
+                await MainActor.run {
+                    if let chat = OllamaClient.preferredChatModel(from: models) {
+                        settings.aiModel = chat
+                    }
+                }
             }
         }
     }

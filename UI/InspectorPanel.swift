@@ -3,7 +3,6 @@ import AppKit
 
 struct InspectorPanel: View {
     @Binding var selectedMemories: Set<UUID>
-    @State private var memory: MemoryObject? = nil
 
     @ObservedObject private var engine = MemoryEngine.shared
     @ObservedObject private var settings = SettingsStore.shared
@@ -15,11 +14,21 @@ struct InspectorPanel: View {
     @State private var synthesisResult: String? = nil
     @State private var synthesizing = false
 
+    /// Resolve the selected card directly from the binding + DB. Caching in
+    /// `@State` via `onChange` left the inspector stuck on the empty state when
+    /// the panel lived in a NavigationSplitView detail column that did not
+    /// reliably receive Set change notifications.
+    private var singleSelectedMemory: MemoryObject? {
+        _ = engine.dataVersion
+        guard selectedMemories.count == 1, let id = selectedMemories.first else { return nil }
+        return engine.fetch(id: id)
+    }
+
     var body: some View {
         Group {
             if selectedMemories.count > 1 {
                 multiSelectState
-            } else if let memory = memory, selectedMemories.count == 1 {
+            } else if let memory = singleSelectedMemory {
                 detail(for: memory)
             } else {
                 emptyState
@@ -28,19 +37,12 @@ struct InspectorPanel: View {
         .frame(minWidth: HortSizing.inspectorWidth)
         .frame(maxHeight: .infinity)
         .background(HortColors.surface)
-        .onChange(of: selectedMemories) { _, newSelection in
-            if newSelection.count == 1, let id = newSelection.first {
-                memory = engine.fetch(id: id)
-            } else {
-                memory = nil
-            }
+        .onChange(of: selectedMemories) { _, _ in
             synthesisResult = nil
             synthesizing = false
-        }
-        .onChange(of: engine.dataVersion) { _, _ in
-            if selectedMemories.count == 1, let id = selectedMemories.first {
-                memory = engine.fetch(id: id)
-            }
+            aiError = nil
+            analyzing = false
+            streamingSummary = ""
         }
     }
 
@@ -102,24 +104,22 @@ struct InspectorPanel: View {
                     }
                 }
 
-                if let content = memory.content, !content.isEmpty, memory.type != .image, memory.type != .screenshot {
+                if memory.type == .image || memory.type == .screenshot {
                     section(LocalizedStringKey("inspector.content")) {
-                        SelectableText(text: content)
-                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
-                            .padding(HortSpacing.md)
-                            .background(HortColors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                        imagePreview(for: memory)
                     }
-                }
-
-                if (memory.type == .image || memory.type == .screenshot),
-                   let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
-                    section(LocalizedStringKey("inspector.ocr_text")) {
-                        SelectableText(text: ocrText)
-                            .frame(minHeight: 80, idealHeight: 150, maxHeight: 240)
-                            .padding(HortSpacing.md)
-                            .background(HortColors.background)
-                            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                    if let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
+                        section(LocalizedStringKey("inspector.ocr_text")) {
+                            contentBox {
+                                SelectableText(text: ocrText)
+                            }
+                        }
+                    }
+                } else if let content = memory.content, !content.isEmpty {
+                    section(LocalizedStringKey("inspector.content")) {
+                        contentBox {
+                            SelectableText(text: content)
+                        }
                     }
                 }
 
@@ -134,9 +134,7 @@ struct InspectorPanel: View {
                         HortButton(title: LocalizedStringKey("inspector.copy"),
                                    icon: "doc.on.doc",
                                    style: .secondary) {
-                            if let content = memory.content {
-                                ClipboardMonitor.shared.writeWithoutCapture(content)
-                            }
+                            copyMemoryContent(memory)
                         }
                         HortButton(title: LocalizedStringKey("inspector.export"),
                                    icon: "square.and.arrow.up",
@@ -169,7 +167,11 @@ struct InspectorPanel: View {
                 }
             }
             .padding(HortSpacing.xl)
+            .padding(.bottom, HortSpacing.xxl)
         }
+        // Explicit content shape so hover/hit-testing matches the scrolled
+        // layout instead of a stale AppKit overlay from the old NSTextView.
+        .contentShape(Rectangle())
     }
 
     /// The on-disk path worth showing: the original file path for Finder
@@ -183,6 +185,19 @@ struct InspectorPanel: View {
             break
         }
         return nil
+    }
+
+    /// Copies card content: image pixels for visual cards, text otherwise.
+    private func copyMemoryContent(_ memory: MemoryObject) {
+        if memory.type == .image || memory.type == .screenshot {
+            if let path = memory.content, FileManager.default.fileExists(atPath: path) {
+                ClipboardMonitor.shared.writeWithoutCapture(imageFilePath: path)
+                return
+            }
+        }
+        if let content = memory.content, !content.isEmpty {
+            ClipboardMonitor.shared.writeWithoutCapture(content)
+        }
     }
 
     private func runAIAnalysis(for memory: MemoryObject) {
@@ -214,7 +229,7 @@ struct InspectorPanel: View {
                         for tag in result.tags where !updatedMemory.tags.contains(tag) {
                             updatedMemory.tags.append(tag)
                         }
-                        self.memory = engine.update(updatedMemory) { _ in }
+                        _ = engine.update(updatedMemory) { _ in }
                     }
                 }
                 if let path = imagePath, FileManager.default.fileExists(atPath: path) {
@@ -225,6 +240,9 @@ struct InspectorPanel: View {
                 await MainActor.run {
                     analyzing = false
                     streamingSummary = ""
+                    if SettingsStore.shared.semanticEnabled {
+                        EmbeddingIndexer.shared.enqueue(memory.id)
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -237,116 +255,122 @@ struct InspectorPanel: View {
     }
 
     private var multiSelectState: some View {
-        VStack(spacing: HortSpacing.xl) {
-            Image(systemName: "square.on.square.dashed")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(HortColors.textTertiary)
+        ScrollView {
+            VStack(spacing: HortSpacing.xl) {
+                Image(systemName: "square.on.square.dashed")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundColor(HortColors.textTertiary)
 
-            Text("\(selectedMemories.count) " + L("inspector.selected"))
-                .font(HortTypography.label(size: HortTypography.Size.body))
-                .foregroundColor(HortColors.textPrimary)
+                Text("\(selectedMemories.count) " + L("inspector.selected"))
+                    .font(HortTypography.label(size: HortTypography.Size.body))
+                    .foregroundColor(HortColors.textPrimary)
 
-            multiSelectPreviews
+                multiSelectPreviews
 
-            VStack(spacing: HortSpacing.sm) {
-                Menu {
-                    Button(LocalizedStringKey("inspector.move_to_inbox")) { moveSelected(toBoard: nil) }
-                    if !settings.boards.isEmpty { Divider() }
-                    ForEach(settings.boards) { board in
-                        Button(board.name) { moveSelected(toBoard: board.name) }
-                    }
-                } label: {
-                    HStack(spacing: HortSpacing.sm) {
-                        Image(systemName: "tray.full").font(HortTypography.primary(size: 12)).frame(width: 16)
-                        Text("inspector.move_to_board").font(HortTypography.label(size: 12))
-                        Spacer()
-                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .padding(.horizontal, 11)
-                    .background(HortColors.elevated)
-                    .foregroundColor(HortColors.textSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-
-                HortButton(title: LocalizedStringKey("inspector.favorite_all"),
-                           icon: "star",
-                           style: .secondary) {
-                    engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
-                    selectedMemories.removeAll()
-                }
-                HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
-                           icon: "star.slash",
-                           style: .secondary) {
-                    engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
-                    selectedMemories.removeAll()
-                }
-                if AppState.shared.selection == .archive {
-                    HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
-                               icon: "tray.and.arrow.up",
-                               style: .secondary) {
-                        engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
-                        selectedMemories.removeAll()
-                    }
-                } else {
-                    HortButton(title: LocalizedStringKey("inspector.archive_all"),
-                               icon: "archivebox",
-                               style: .secondary) {
-                        engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
-                        selectedMemories.removeAll()
-                    }
-                }
-                if settings.aiEnabled {
-                    if synthesizing {
-                        HStack(spacing: HortSpacing.sm) {
-                            ProgressView().controlSize(.small)
-                            Text(L("inspector.synthesizing"))
-                                .font(HortTypography.technical(size: HortTypography.Size.caption))
-                                .foregroundColor(HortColors.textSecondary)
+                VStack(spacing: HortSpacing.sm) {
+                    Menu {
+                        Button(LocalizedStringKey("inspector.move_to_inbox")) { moveSelected(toBoard: nil) }
+                        if !settings.boards.isEmpty { Divider() }
+                        ForEach(settings.boards) { board in
+                            Button(board.name) { moveSelected(toBoard: board.name) }
                         }
-                    } else if let result = synthesisResult {
-                        VStack(alignment: .leading, spacing: HortSpacing.sm) {
-                            HortSectionHeader(title: LocalizedStringKey("inspector.synthesis"))
-                            Text(result)
-                                .font(HortTypography.primary(size: HortTypography.Size.caption))
-                                .lineSpacing(3)
-                                .foregroundColor(HortColors.accent)
-                                .padding(HortSpacing.md)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(HortColors.accentSoft)
-                                .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
-                            HortButton(title: LocalizedStringKey("inspector.copy"),
-                                       icon: "doc.on.doc",
-                                       style: .secondary) {
-                                ClipboardMonitor.shared.writeWithoutCapture(result)
-                            }
+                    } label: {
+                        HStack(spacing: HortSpacing.sm) {
+                            Image(systemName: "tray.full").font(HortTypography.primary(size: 12)).frame(width: 16)
+                            Text("inspector.move_to_board").font(HortTypography.label(size: 12))
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .padding(.horizontal, 11)
+                        .background(HortColors.elevated)
+                        .foregroundColor(HortColors.textSecondary)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                        .contentShape(Rectangle())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+
+                    HortButton(title: LocalizedStringKey("inspector.favorite_all"),
+                               icon: "star",
+                               style: .secondary) {
+                        engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
+                        selectedMemories.removeAll()
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
+                               icon: "star.slash",
+                               style: .secondary) {
+                        engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
+                        selectedMemories.removeAll()
+                    }
+                    if AppState.shared.selection == .archive {
+                        HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
+                                   icon: "tray.and.arrow.up",
+                                   style: .secondary) {
+                            engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
+                            selectedMemories.removeAll()
                         }
                     } else {
-                        HortButton(title: LocalizedStringKey("inspector.synthesize"),
-                                   icon: "sparkles",
+                        HortButton(title: LocalizedStringKey("inspector.archive_all"),
+                                   icon: "archivebox",
                                    style: .secondary) {
-                            synthesizeSelected()
+                            engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
+                            selectedMemories.removeAll()
                         }
                     }
+                    if settings.aiEnabled {
+                        if synthesizing {
+                            HStack(spacing: HortSpacing.sm) {
+                                ProgressView().controlSize(.small)
+                                Text(L("inspector.synthesizing"))
+                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                    .foregroundColor(HortColors.textSecondary)
+                            }
+                        } else if let result = synthesisResult {
+                            VStack(alignment: .leading, spacing: HortSpacing.sm) {
+                                HortSectionHeader(title: LocalizedStringKey("inspector.synthesis"))
+                                Text(result)
+                                    .font(HortTypography.primary(size: HortTypography.Size.caption))
+                                    .lineSpacing(3)
+                                    .foregroundColor(HortColors.accent)
+                                    .padding(HortSpacing.md)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(HortColors.accentSoft)
+                                    .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                                HortButton(title: LocalizedStringKey("inspector.copy"),
+                                           icon: "doc.on.doc",
+                                           style: .secondary) {
+                                    ClipboardMonitor.shared.writeWithoutCapture(result)
+                                }
+                            }
+                        } else {
+                            HortButton(title: LocalizedStringKey("inspector.synthesize"),
+                                       icon: "sparkles",
+                                       style: .secondary) {
+                                synthesizeSelected()
+                            }
+                        }
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.delete_all"),
+                               icon: "trash",
+                               style: .destructive) {
+                        let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
+                        engine.delete(ids: selectedMemories)
+                        selectedMemories.removeAll()
+                        AppState.shared.stashForUndo(objects)
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.clear_selection"),
+                               icon: "xmark.circle",
+                               style: .ghost) {
+                        selectedMemories.removeAll()
+                    }
                 }
-                HortButton(title: LocalizedStringKey("inspector.delete_all"),
-                           icon: "trash",
-                           style: .destructive) {
-                    let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
-                    engine.delete(ids: selectedMemories)
-                    selectedMemories.removeAll()
-                    AppState.shared.stashForUndo(objects)
-                }
-                HortButton(title: LocalizedStringKey("inspector.clear_selection"),
-                           icon: "xmark.circle",
-                           style: .ghost) {
-                    selectedMemories.removeAll()
-                }
+                .padding(.horizontal, HortSpacing.xxl)
             }
-            .padding(.horizontal, HortSpacing.xxl)
+            .padding(.vertical, HortSpacing.xl)
+            .padding(.bottom, HortSpacing.xxl)
+            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -440,6 +464,59 @@ struct InspectorPanel: View {
             HortSectionHeader(title: title)
             content()
         }
+    }
+
+    /// Content well that sizes to its text. No nested scroll view — the
+    /// inspector's outer ScrollView owns scrolling so buttons stay aligned
+    /// with their hit targets.
+    @ViewBuilder
+    private func contentBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(HortSpacing.md)
+            .background(HortColors.background)
+            .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+    }
+
+    /// Full-asset / thumbnail preview for image and screenshot cards.
+    @ViewBuilder
+    private func imagePreview(for memory: MemoryObject) -> some View {
+        let path = imageAssetPath(for: memory)
+        Group {
+            if let path, let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: 280)
+            } else {
+                HStack(spacing: HortSpacing.sm) {
+                    Image(systemName: iconName(for: memory.type))
+                        .foregroundColor(HortColors.accent)
+                    Text(L("dashboard.image_asset"))
+                        .font(HortTypography.primary(size: HortTypography.Size.caption))
+                        .foregroundColor(HortColors.textSecondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 80, alignment: .center)
+            }
+        }
+        .padding(HortSpacing.md)
+        .frame(maxWidth: .infinity)
+        .background(HortColors.background)
+        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+    }
+
+    private func imageAssetPath(for memory: MemoryObject) -> String? {
+        if let content = memory.content,
+           FileManager.default.fileExists(atPath: content) {
+            return content
+        }
+        if let thumb = memory.thumbnailPath,
+           FileManager.default.fileExists(atPath: thumb) {
+            return thumb
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -540,8 +617,7 @@ struct InspectorPanel: View {
     }
 
     private func toggleFavorite(_ memory: MemoryObject) {
-        let updated = engine.update(memory) { $0.isFavorite.toggle() }
-        self.memory = updated
+        _ = engine.update(memory) { $0.isFavorite.toggle() }
     }
 
     @ViewBuilder
@@ -576,11 +652,11 @@ struct InspectorPanel: View {
             newTag = ""
             return
         }
-        self.memory = engine.update(memory) { $0.tags.append(tag) }
+        _ = engine.update(memory) { $0.tags.append(tag) }
         newTag = ""
     }
 
     private func removeTag(_ tag: String, from memory: MemoryObject) {
-        self.memory = engine.update(memory) { $0.tags.removeAll { $0 == tag } }
+        _ = engine.update(memory) { $0.tags.removeAll { $0 == tag } }
     }
 }

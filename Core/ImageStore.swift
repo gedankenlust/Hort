@@ -26,15 +26,16 @@ enum ImageStore {
         return (assetPath, thumbnailPath)
     }
 
+    /// Copies an on-disk image into Hort's asset store (full PNG + thumbnail).
+    /// Used for Desktop screenshots so cards survive cleaning the Desktop.
+    static func persist(fromFile path: String, id: UUID) -> (asset: String?, thumbnail: String?) {
+        guard let image = NSImage(contentsOfFile: path) else { return (nil, nil) }
+        return persist(image, id: id)
+    }
+
     /// Generates a thumbnail from an existing image file (e.g. a screenshot).
     static func thumbnail(fromFile path: String, id: UUID) -> String? {
-        guard let image = NSImage(contentsOfFile: path),
-              let thumb = image.resized(maxDimension: thumbnailMaxDimension),
-              let data = pngData(from: thumb),
-              let url = try? FileSystemManager.shared.saveThumbnail(data, fileName: "\(id.uuidString).png") else {
-            return nil
-        }
-        return url.path
+        persist(fromFile: path, id: id).thumbnail
     }
 
     private static func pngData(from image: NSImage) -> Data? {

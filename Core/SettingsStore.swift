@@ -53,6 +53,12 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(aiAutopilot, forKey: Keys.aiAutopilot) }
     }
 
+    /// Whether Autopilot also files captures into boards/folders after analysis.
+    /// Off by default — organizing is opt-in and never forced without consent.
+    @Published var aiAutopilotOrganize: Bool {
+        didSet { defaults.set(aiAutopilotOrganize, forKey: Keys.aiAutopilotOrganize) }
+    }
+
     /// Whether the local semantic index (embeddings) and "Ask your memory" are
     /// enabled. Requires Ollama; off by default like the other AI features.
     @Published var semanticEnabled: Bool {
@@ -109,6 +115,7 @@ final class SettingsStore: ObservableObject {
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
         static let aiAutopilot = "aiAutopilot"
+        static let aiAutopilotOrganize = "aiAutopilotOrganize"
         static let semanticEnabled = "semanticEnabled"
         static let embeddingModel = "embeddingModel"
         static let language = "language"
@@ -141,14 +148,17 @@ final class SettingsStore: ObservableObject {
         aiEnabled = defaults.object(forKey: Keys.aiEnabled) as? Bool ?? false
         aiModel = defaults.string(forKey: Keys.aiModel) ?? "llama3"
         aiAutopilot = defaults.object(forKey: Keys.aiAutopilot) as? Bool ?? false
+        aiAutopilotOrganize = defaults.object(forKey: Keys.aiAutopilotOrganize) as? Bool ?? false
         semanticEnabled = defaults.object(forKey: Keys.semanticEnabled) as? Bool ?? false
         embeddingModel = defaults.string(forKey: Keys.embeddingModel) ?? "nomic-embed-text:latest"
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     func addBoard(_ name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !boards.contains(where: { $0.name == trimmed }) else { return }
+        let trimmed = AutopilotOrganizer.normalizeName(name)
+        guard AutopilotOrganizer.isValidName(trimmed) else { return }
+        // Reuse case-insensitively so Autopilot doesn't mint "Recipes" next to "recipes".
+        guard AutopilotOrganizer.matchBoard(trimmed, in: boards) == nil else { return }
         boards.append(Board(name: trimmed))
     }
 
@@ -175,13 +185,15 @@ final class SettingsStore: ObservableObject {
     }
 
     func addFolder(to boardName: String, folderName: String) {
-        let trimmed = folderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        if let index = boards.firstIndex(where: { $0.name == boardName }) {
-            if !boards[index].folders.contains(trimmed) {
-                boards[index].folders.append(trimmed)
-                boards = boards
-            }
+        let trimmed = AutopilotOrganizer.normalizeName(folderName)
+        guard AutopilotOrganizer.isValidName(trimmed) else { return }
+        guard let index = boards.firstIndex(where: {
+            AutopilotOrganizer.normalizeKey($0.name) == AutopilotOrganizer.normalizeKey(boardName)
+                || $0.name == boardName
+        }) else { return }
+        if AutopilotOrganizer.matchFolder(trimmed, in: boards[index].folders) == nil {
+            boards[index].folders.append(trimmed)
+            boards = boards
         }
     }
 
