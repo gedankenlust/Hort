@@ -167,7 +167,11 @@ struct InspectorPanel: View {
                 }
             }
             .padding(HortSpacing.xl)
+            .padding(.bottom, HortSpacing.xxl)
         }
+        // Explicit content shape so hover/hit-testing matches the scrolled
+        // layout instead of a stale AppKit overlay from the old NSTextView.
+        .contentShape(Rectangle())
     }
 
     /// The on-disk path worth showing: the original file path for Finder
@@ -251,116 +255,122 @@ struct InspectorPanel: View {
     }
 
     private var multiSelectState: some View {
-        VStack(spacing: HortSpacing.xl) {
-            Image(systemName: "square.on.square.dashed")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(HortColors.textTertiary)
+        ScrollView {
+            VStack(spacing: HortSpacing.xl) {
+                Image(systemName: "square.on.square.dashed")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundColor(HortColors.textTertiary)
 
-            Text("\(selectedMemories.count) " + L("inspector.selected"))
-                .font(HortTypography.label(size: HortTypography.Size.body))
-                .foregroundColor(HortColors.textPrimary)
+                Text("\(selectedMemories.count) " + L("inspector.selected"))
+                    .font(HortTypography.label(size: HortTypography.Size.body))
+                    .foregroundColor(HortColors.textPrimary)
 
-            multiSelectPreviews
+                multiSelectPreviews
 
-            VStack(spacing: HortSpacing.sm) {
-                Menu {
-                    Button(LocalizedStringKey("inspector.move_to_inbox")) { moveSelected(toBoard: nil) }
-                    if !settings.boards.isEmpty { Divider() }
-                    ForEach(settings.boards) { board in
-                        Button(board.name) { moveSelected(toBoard: board.name) }
-                    }
-                } label: {
-                    HStack(spacing: HortSpacing.sm) {
-                        Image(systemName: "tray.full").font(HortTypography.primary(size: 12)).frame(width: 16)
-                        Text("inspector.move_to_board").font(HortTypography.label(size: 12))
-                        Spacer()
-                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .padding(.horizontal, 11)
-                    .background(HortColors.elevated)
-                    .foregroundColor(HortColors.textSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-
-                HortButton(title: LocalizedStringKey("inspector.favorite_all"),
-                           icon: "star",
-                           style: .secondary) {
-                    engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
-                    selectedMemories.removeAll()
-                }
-                HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
-                           icon: "star.slash",
-                           style: .secondary) {
-                    engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
-                    selectedMemories.removeAll()
-                }
-                if AppState.shared.selection == .archive {
-                    HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
-                               icon: "tray.and.arrow.up",
-                               style: .secondary) {
-                        engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
-                        selectedMemories.removeAll()
-                    }
-                } else {
-                    HortButton(title: LocalizedStringKey("inspector.archive_all"),
-                               icon: "archivebox",
-                               style: .secondary) {
-                        engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
-                        selectedMemories.removeAll()
-                    }
-                }
-                if settings.aiEnabled {
-                    if synthesizing {
-                        HStack(spacing: HortSpacing.sm) {
-                            ProgressView().controlSize(.small)
-                            Text(L("inspector.synthesizing"))
-                                .font(HortTypography.technical(size: HortTypography.Size.caption))
-                                .foregroundColor(HortColors.textSecondary)
+                VStack(spacing: HortSpacing.sm) {
+                    Menu {
+                        Button(LocalizedStringKey("inspector.move_to_inbox")) { moveSelected(toBoard: nil) }
+                        if !settings.boards.isEmpty { Divider() }
+                        ForEach(settings.boards) { board in
+                            Button(board.name) { moveSelected(toBoard: board.name) }
                         }
-                    } else if let result = synthesisResult {
-                        VStack(alignment: .leading, spacing: HortSpacing.sm) {
-                            HortSectionHeader(title: LocalizedStringKey("inspector.synthesis"))
-                            Text(result)
-                                .font(HortTypography.primary(size: HortTypography.Size.caption))
-                                .lineSpacing(3)
-                                .foregroundColor(HortColors.accent)
-                                .padding(HortSpacing.md)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(HortColors.accentSoft)
-                                .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
-                            HortButton(title: LocalizedStringKey("inspector.copy"),
-                                       icon: "doc.on.doc",
-                                       style: .secondary) {
-                                ClipboardMonitor.shared.writeWithoutCapture(result)
-                            }
+                    } label: {
+                        HStack(spacing: HortSpacing.sm) {
+                            Image(systemName: "tray.full").font(HortTypography.primary(size: 12)).frame(width: 16)
+                            Text("inspector.move_to_board").font(HortTypography.label(size: 12))
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .padding(.horizontal, 11)
+                        .background(HortColors.elevated)
+                        .foregroundColor(HortColors.textSecondary)
+                        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                        .contentShape(Rectangle())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+
+                    HortButton(title: LocalizedStringKey("inspector.favorite_all"),
+                               icon: "star",
+                               style: .secondary) {
+                        engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
+                        selectedMemories.removeAll()
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
+                               icon: "star.slash",
+                               style: .secondary) {
+                        engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
+                        selectedMemories.removeAll()
+                    }
+                    if AppState.shared.selection == .archive {
+                        HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
+                                   icon: "tray.and.arrow.up",
+                                   style: .secondary) {
+                            engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
+                            selectedMemories.removeAll()
                         }
                     } else {
-                        HortButton(title: LocalizedStringKey("inspector.synthesize"),
-                                   icon: "sparkles",
+                        HortButton(title: LocalizedStringKey("inspector.archive_all"),
+                                   icon: "archivebox",
                                    style: .secondary) {
-                            synthesizeSelected()
+                            engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
+                            selectedMemories.removeAll()
                         }
                     }
+                    if settings.aiEnabled {
+                        if synthesizing {
+                            HStack(spacing: HortSpacing.sm) {
+                                ProgressView().controlSize(.small)
+                                Text(L("inspector.synthesizing"))
+                                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                    .foregroundColor(HortColors.textSecondary)
+                            }
+                        } else if let result = synthesisResult {
+                            VStack(alignment: .leading, spacing: HortSpacing.sm) {
+                                HortSectionHeader(title: LocalizedStringKey("inspector.synthesis"))
+                                Text(result)
+                                    .font(HortTypography.primary(size: HortTypography.Size.caption))
+                                    .lineSpacing(3)
+                                    .foregroundColor(HortColors.accent)
+                                    .padding(HortSpacing.md)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(HortColors.accentSoft)
+                                    .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                                HortButton(title: LocalizedStringKey("inspector.copy"),
+                                           icon: "doc.on.doc",
+                                           style: .secondary) {
+                                    ClipboardMonitor.shared.writeWithoutCapture(result)
+                                }
+                            }
+                        } else {
+                            HortButton(title: LocalizedStringKey("inspector.synthesize"),
+                                       icon: "sparkles",
+                                       style: .secondary) {
+                                synthesizeSelected()
+                            }
+                        }
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.delete_all"),
+                               icon: "trash",
+                               style: .destructive) {
+                        let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
+                        engine.delete(ids: selectedMemories)
+                        selectedMemories.removeAll()
+                        AppState.shared.stashForUndo(objects)
+                    }
+                    HortButton(title: LocalizedStringKey("inspector.clear_selection"),
+                               icon: "xmark.circle",
+                               style: .ghost) {
+                        selectedMemories.removeAll()
+                    }
                 }
-                HortButton(title: LocalizedStringKey("inspector.delete_all"),
-                           icon: "trash",
-                           style: .destructive) {
-                    let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
-                    engine.delete(ids: selectedMemories)
-                    selectedMemories.removeAll()
-                    AppState.shared.stashForUndo(objects)
-                }
-                HortButton(title: LocalizedStringKey("inspector.clear_selection"),
-                           icon: "xmark.circle",
-                           style: .ghost) {
-                    selectedMemories.removeAll()
-                }
+                .padding(.horizontal, HortSpacing.xxl)
             }
-            .padding(.horizontal, HortSpacing.xxl)
+            .padding(.vertical, HortSpacing.xl)
+            .padding(.bottom, HortSpacing.xxl)
+            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -456,16 +466,17 @@ struct InspectorPanel: View {
         }
     }
 
-    /// Fixed-height content well so `SelectableText` (NSScrollView) gets a real
-    /// proposed size instead of collapsing inside the outer ScrollView.
+    /// Content well that sizes to its text. No nested scroll view — the
+    /// inspector's outer ScrollView owns scrolling so buttons stay aligned
+    /// with their hit targets.
     @ViewBuilder
     private func contentBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .frame(height: 160)
             .padding(HortSpacing.md)
             .background(HortColors.background)
             .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
     }
 
     /// Full-asset / thumbnail preview for image and screenshot cards.
