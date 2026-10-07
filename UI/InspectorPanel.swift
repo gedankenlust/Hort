@@ -34,8 +34,7 @@ struct InspectorPanel: View {
                 emptyState
             }
         }
-        .frame(minWidth: HortSizing.inspectorWidth)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(HortColors.surface)
         .onChange(of: selectedMemories) { _, _ in
             synthesisResult = nil
@@ -43,6 +42,7 @@ struct InspectorPanel: View {
             aiError = nil
             analyzing = false
             streamingSummary = ""
+            AppState.shared.inspectorTextFocused = false
         }
     }
 
@@ -168,10 +168,9 @@ struct InspectorPanel: View {
             }
             .padding(HortSpacing.xl)
             .padding(.bottom, HortSpacing.xxl)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        // Explicit content shape so hover/hit-testing matches the scrolled
-        // layout instead of a stale AppKit overlay from the old NSTextView.
-        .contentShape(Rectangle())
+        .scrollIndicators(.visible)
     }
 
     /// The on-disk path worth showing: the original file path for Finder
