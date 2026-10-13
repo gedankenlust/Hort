@@ -13,9 +13,12 @@ struct MemoryCardView: View {
     var onDelete: (() -> Void)? = nil
     var onTagClick: ((String) -> Void)? = nil
 
+    @ObservedObject private var settings = SettingsStore.shared
     @State private var isHovering = false
     @State private var justCopied = false
     @State private var loadedImage: NSImage?
+
+    private var blurOn: Bool { settings.privacyBlurEnabled }
 
     var body: some View {
         HortCard(isSelected: isSelected, isHovering: isHovering) {
@@ -31,6 +34,7 @@ struct MemoryCardView: View {
                             Image(nsImage: image)
                                 .resizable()
                                 .scaledToFill()
+                                .privacyBlur(blurOn, radius: PrivacyBlur.image, disableHitTesting: false)
                         )
                         .contentShape(Rectangle())
                         .clipped()
@@ -61,6 +65,7 @@ struct MemoryCardView: View {
                         cardContent
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             .padding(.horizontal, HortSpacing.md)
+                            .privacyBlur(blurOn)
 
                         footerView(onImage: false)
                     }
@@ -210,6 +215,7 @@ struct MemoryCardView: View {
             }
             Spacer(minLength: 0)
         }
+        .privacyBlur(blurOn)
         .frame(height: 34)
         .padding(.horizontal, HortSpacing.md)
         .padding(.bottom, 10)

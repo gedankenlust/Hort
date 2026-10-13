@@ -45,12 +45,16 @@
 "settings.privacy.status.none" = "Keine";
 "settings.privacy.ignore_passwords" = "Passwörter/Private Ablage ignorieren";
 "settings.privacy.ignore_passwords_desc" = "Überspringt als sensibel markierte Inhalte (z.B. Passwort-Manager)";
+"settings.privacy.blur" = "Inhalte für Screenshots unscharf machen";
+"settings.privacy.blur_desc" = "Verwischt Titel, Text, URLs, OCR, Pfade und Vorschaubilder sofort, damit Fenster-Screenshots privat bleiben.";
 "settings.privacy.screenshot_warning" = "Schreibtisch-Screenshots werden unabhängig von der aktiven App erfasst. Lösche sensible Bildinhalte bei Bedarf manuell.";
+"privacy.blur_enable" = "Inhalte für Screenshots unscharf machen";
+"privacy.blur_disable" = "Inhalte wieder anzeigen";
 "settings.ai.title" = "Lokale KI (Ollama)";
 "settings.ai.enabled" = "Lokale KI-Analyse aktivieren";
 "settings.ai.autopilot" = "AI Autopilot (Automatische Hintergrund-Analyse)";
 "settings.ai.autopilot_organize" = "Autopilot sortieren";
-"settings.ai.autopilot_organize_desc" = "Nach der Analyse Captures in Boards und Ordner einsortieren — auch den Eingang. Bevorzugt lokales Matching über Tags/Zusammenfassungen (ohne Modell). Sonst kleine Chargen (max. 10) mit Abkühlpausen; pausiert bei Überhitzung. „Weiter aufräumen“ für die nächste Charge.";
+"settings.ai.autopilot_organize_desc" = "Sortiert Captures in Boards und Ordner — auch den Eingang. Bevorzugt schnelles lokales Matching über Tags/Zusammenfassungen/Inhalt (ohne Modell). LLM nur für Rest, in kleinen Chargen mit kurzen Pausen; pausiert bei Überhitzung. „Weiter aufräumen“ für die nächste LLM-Welle.";
 "settings.ai.autopilot_organize_tidy" = "Eingang jetzt aufräumen";
 "settings.ai.autopilot_organize_tidy_more" = "Weiter aufräumen";
 "settings.ai.autopilot_organize_pause" = "Pause";
@@ -161,6 +165,8 @@
 "dashboard.archive_old" = "Alte Einträge archivieren";
 "dashboard.archive_week" = "Älter als 7 Tage archivieren";
 "dashboard.archive_month" = "Älter als 30 Tage archivieren";
+"dashboard.privacy_blur_help" = "Karten-Text und Links für sichere Screenshots unscharf machen";
+"dashboard.privacy_blur_off_help" = "Karten-Text und Links wieder anzeigen";
 
 /* Onboarding */
 "onboarding.status" = "Bereit";
@@ -213,14 +219,21 @@
 /* Ollama status */
 "sidebar.ollama.analyzing" = "Analysiert…";
 "sidebar.ollama.analyzing_queued" = "Analysiert… (+%@)";
+"sidebar.ollama.analyzing_then_organize" = "%@ · %@ unsortiert";
 "sidebar.ollama.organizing" = "Sortiere…";
 "sidebar.ollama.organizing_queued" = "Sortiere… %@ übrig";
 "sidebar.ollama.organizing_batch" = "Sortiere… %@/%@";
 "sidebar.ollama.organizing_batch_more" = "Sortiere… %@/%@ · %@ übrig";
+"sidebar.ollama.organizing_filed" = "%@ einsortiert · %@ übrig";
+"sidebar.ollama.organizing_filed_batch" = "%@ einsortiert · %@/%@ · %@ übrig";
 "sidebar.ollama.organizing_paused" = "Sortieren pausiert";
 "sidebar.ollama.organizing_thermal" = "Wegen Hitze pausiert";
 "sidebar.ollama.organizing_cancel_help" = "Klicken zum Abbrechen";
+"sidebar.ollama.stop_help" = "Klicken zum Stoppen von Analyse / Sortieren";
 "sidebar.ollama.organized" = "Einsortiert → %@";
 "sidebar.ollama.organized_folder" = "Einsortiert → %@ / %@";
+"sidebar.ollama.organized_count" = "%@ einsortiert → %@";
+"sidebar.ollama.organized_folder_count" = "%@ einsortiert → %@ / %@";
+"sidebar.ollama.inbox_unfiled" = "%@ unsortiert im Eingang";
 "sidebar.ollama.offline" = "Ollama offline";
 "sidebar.ollama.model" = "Ollama: %@";

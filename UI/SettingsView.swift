@@ -222,6 +222,18 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                     .tint(HortColors.accent)
 
+                    Toggle(isOn: $settings.privacyBlurEnabled) {
+                        VStack(alignment: .leading, spacing: HortSpacing.xs) {
+                            Text(LocalizedStringKey("settings.privacy.blur"))
+                                .foregroundColor(HortColors.textPrimary)
+                            Text(LocalizedStringKey("settings.privacy.blur_desc"))
+                                .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                .foregroundColor(HortColors.textSecondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .tint(HortColors.accent)
+
                     Text(LocalizedStringKey("settings.privacy.screenshot_warning"))
                         .font(HortTypography.technical(size: HortTypography.Size.caption))
                         .foregroundColor(HortColors.textSecondary)
@@ -367,6 +379,9 @@ struct SettingsView: View {
                     }
                     .toggleStyle(.switch)
                     .tint(HortColors.accent)
+                    .onChange(of: settings.aiEnabled) { _, on in
+                        if !on { runtime.cancelAllAutopilot() }
+                    }
 
                     if settings.aiEnabled {
                         Toggle(isOn: $settings.aiAutopilot) {
@@ -378,6 +393,8 @@ struct SettingsView: View {
                         .onChange(of: settings.aiAutopilot) { _, on in
                             if on, settings.aiAutopilotOrganize {
                                 runtime.backfillOrganize()
+                            } else if !on {
+                                runtime.cancelAllAutopilot()
                             }
                         }
 
@@ -395,7 +412,11 @@ struct SettingsView: View {
                             .toggleStyle(.switch)
                             .tint(HortColors.accent)
                             .onChange(of: settings.aiAutopilotOrganize) { _, on in
-                                if on { runtime.backfillOrganize() }
+                                if on {
+                                    runtime.backfillOrganize()
+                                } else {
+                                    runtime.cancelAllAutopilot()
+                                }
                             }
 
                             if settings.aiAutopilotOrganize {
@@ -407,6 +428,27 @@ struct SettingsView: View {
                                             style: .secondary
                                         ) {
                                             runtime.backfillOrganize()
+                                        }
+                                    }
+
+                                    if runtime.isAnalyzing || runtime.queuedCount > 0 {
+                                        HStack(spacing: HortSpacing.sm) {
+                                            ProgressView().controlSize(.small)
+                                            Text(
+                                                runtime.queuedCount > 0
+                                                    ? String(format: L("sidebar.ollama.analyzing_queued"), "\(runtime.queuedCount)")
+                                                    : L("sidebar.ollama.analyzing")
+                                            )
+                                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                                            .foregroundColor(HortColors.textSecondary)
+                                            Spacer(minLength: 0)
+                                            HortButton(
+                                                title: "settings.ai.autopilot_organize_cancel",
+                                                icon: "xmark",
+                                                style: .destructive
+                                            ) {
+                                                runtime.cancelAllAutopilot()
+                                            }
                                         }
                                     }
 
@@ -456,7 +498,7 @@ struct SettingsView: View {
                                                 icon: "xmark",
                                                 style: .destructive
                                             ) {
-                                                runtime.cancelOrganize()
+                                                runtime.cancelAllAutopilot()
                                             }
                                         }
                                     } else if runtime.organizeInboxOutstanding > 0,

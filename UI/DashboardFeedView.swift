@@ -77,6 +77,15 @@ struct DashboardFeedView: View {
                 if settings.semanticEnabled {
                     HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
                 }
+                HortIconButton(
+                    icon: settings.privacyBlurEnabled ? "eye.slash" : "eye",
+                    help: settings.privacyBlurEnabled
+                        ? "dashboard.privacy_blur_off_help"
+                        : "dashboard.privacy_blur_help",
+                    isActive: settings.privacyBlurEnabled
+                ) {
+                    settings.privacyBlurEnabled.toggle()
+                }
                 if selection == .inbox, memories.count > 10 {
                     HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {
                         showArchiveOldDialog = true
@@ -471,7 +480,11 @@ struct DashboardFeedView: View {
                 .foregroundColor(HortColors.textSecondary)
 
             if let content = memory.content, !content.isEmpty {
-                let display = memory.type == .image || memory.type == .screenshot ? L("dashboard.image_asset") : content
+                let display: String = {
+                    if settings.privacyBlurEnabled { return "••••••••" }
+                    if memory.type == .image || memory.type == .screenshot { return L("dashboard.image_asset") }
+                    return content
+                }()
                 Text(display.prefix(20))
                     .font(HortTypography.primary(size: 11))
                     .foregroundColor(HortColors.textPrimary)
@@ -522,6 +535,7 @@ struct DashboardFeedView: View {
                         .lineLimit(1)
                 }
             }
+            .privacyBlur(settings.privacyBlurEnabled)
             Spacer()
             if memory.isFavorite {
                 Image(systemName: "star.fill")

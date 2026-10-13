@@ -64,16 +64,18 @@ enum AutopilotOrganizer {
     static let maxBoardNameLength = 40
     static let maxFolderNameLength = 40
     static let minNameLength = 2
-    /// Hard cap per tidy/backfill wave — never enqueue the whole Inbox at once.
-    static let maxBackfillBatch = 10
+    /// Hard cap per tidy/backfill wave — heuristic sweep is cheap; keep LLM waves small.
+    static let maxBackfillBatch = 40
     /// Max items per single Ollama classify prompt (cuts round-trips).
-    static let maxClassifyBatch = 5
+    static let maxClassifyBatch = 8
     /// Baseline pause after an organize LLM call (nominal thermal).
-    static let organizeCooldownNanoseconds: UInt64 = 2_500_000_000
+    static let organizeCooldownNanoseconds: UInt64 = 800_000_000
     /// Longer pause when thermal state is already `.fair`.
-    static let organizeCooldownFairNanoseconds: UInt64 = 3_500_000_000
+    static let organizeCooldownFairNanoseconds: UInt64 = 1_500_000_000
     /// How often to re-check thermal state while paused for heat.
     static let thermalPollNanoseconds: UInt64 = 1_000_000_000
+    /// How many content chars heuristics may scan for board/folder tokens.
+    static let heuristicContentLimit = 600
 
     /// Maps `ProcessInfo` thermal state → cool-down or pause-for-heat.
     static func thermalAction(for state: ProcessInfo.ThermalState) -> OrganizeThermalAction {
@@ -102,12 +104,13 @@ enum AutopilotOrganizer {
         return result
     }
 
-    /// Local-only placement from tags / deferred suggestion / summary tokens.
+    /// Local-only placement from tags / deferred suggestion / summary / content tokens.
     /// Never creates boards or folders — only reuses the existing catalog.
     /// Returns nil when heuristics can't confidently match (caller may ask the LLM).
     static func heuristicProposal(
         tags: [String],
         summary: String = "",
+        contentPreview: String = "",
         suggestedBoard: String? = nil,
         existingBoards: [Board]
     ) -> OrganizationProposal? {
@@ -123,7 +126,7 @@ enum AutopilotOrganizer {
            let board = matchBoard(suggested, in: existingBoards) {
             return OrganizationProposal(
                 board: board.name,
-                folder: bestFolder(from: cleanTags, on: board),
+                folder: bestFolder(from: cleanTags, on: board, haystack: ""),
                 confidence: 0.92,
                 createBoard: false,
                 createFolder: false
@@ -158,8 +161,11 @@ enum AutopilotOrganizer {
             }
         }
 
-        // 4. Summary (or tag bag) contains a board name token — prefer longest key.
-        let haystack = normalizeKey(summary + " " + cleanTags.joined(separator: " "))
+        // 4. Summary / content / tags contain a board name token — prefer longest key.
+        let clippedContent = String(contentPreview.prefix(heuristicContentLimit))
+        let haystack = normalizeKey(
+            summary + " " + clippedContent + " " + cleanTags.joined(separator: " ")
+        )
         guard !haystack.isEmpty else { return nil }
 
         var best: (board: Board, keyLength: Int)?
@@ -173,8 +179,28 @@ enum AutopilotOrganizer {
         if let match = best {
             return OrganizationProposal(
                 board: match.board.name,
-                folder: bestFolder(from: cleanTags, on: match.board),
+                folder: bestFolder(from: cleanTags, on: match.board, haystack: haystack),
                 confidence: 0.72,
+                createBoard: false,
+                createFolder: false
+            )
+        }
+
+        // 5. Folder token in content/summary without an explicit board tag —
+        //    only when that folder name is unique across the catalog.
+        var folderHits: [(board: Board, folder: String)] = []
+        for board in existingBoards {
+            for folder in board.folders {
+                let key = normalizeKey(folder)
+                guard key.count >= 4, haystack.contains(key) else { continue }
+                folderHits.append((board, folder))
+            }
+        }
+        if folderHits.count == 1, let hit = folderHits.first {
+            return OrganizationProposal(
+                board: hit.board.name,
+                folder: hit.folder,
+                confidence: 0.70,
                 createBoard: false,
                 createFolder: false
             )
@@ -415,13 +441,22 @@ enum AutopilotOrganizer {
 
     // MARK: - Private
 
-    private static func bestFolder(from tags: [String], on board: Board) -> String? {
+    private static func bestFolder(from tags: [String], on board: Board, haystack: String) -> String? {
         for tag in tags {
             if let folder = matchFolder(tag, in: board.folders) {
                 return folder
             }
         }
-        return nil
+        guard !haystack.isEmpty else { return nil }
+        var best: (folder: String, keyLength: Int)?
+        for folder in board.folders {
+            let key = normalizeKey(folder)
+            guard key.count >= 3, haystack.contains(key) else { continue }
+            if best == nil || key.count > best!.keyLength {
+                best = (folder, key.count)
+            }
+        }
+        return best?.folder
     }
 
     private static func decideExistingBoard(

@@ -6,6 +6,8 @@ struct HortIconButton: View {
     let icon: String
     let help: LocalizedStringKey
     var disabled: Bool = false
+    /// When true, uses accent tint so an on-state toggle reads clearly.
+    var isActive: Bool = false
     var action: () -> Void
 
     @State private var isHovering = false
@@ -16,7 +18,7 @@ struct HortIconButton: View {
                 .font(.system(size: 14))
                 .foregroundColor(foreground)
                 .frame(width: HortSizing.iconButton, height: HortSizing.iconButton)
-                .background(HortColors.elevated)
+                .background(isActive ? HortColors.accentSoft : HortColors.elevated)
                 .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
                 .contentShape(Rectangle())
         }
@@ -29,6 +31,7 @@ struct HortIconButton: View {
 
     private var foreground: Color {
         if disabled { return HortColors.textTertiary.opacity(0.5) }
+        if isActive { return HortColors.accent }
         return isHovering ? HortColors.textPrimary : HortColors.textSecondary
     }
 }

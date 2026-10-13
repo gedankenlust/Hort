@@ -75,6 +75,12 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(language, forKey: Keys.language) }
     }
 
+    /// When on, blurs titles, preview text, URLs, OCR, paths, and thumbnails
+    /// so a screenshot of the window doesn't leak card contents.
+    @Published var privacyBlurEnabled: Bool {
+        didSet { defaults.set(privacyBlurEnabled, forKey: Keys.privacyBlurEnabled) }
+    }
+
     /// Whether Hort registers itself as a login item (macOS Login Items, via
     /// SMAppService — not persisted in UserDefaults, the source of truth is
     /// SMAppService's own registration state).
@@ -119,10 +125,12 @@ final class SettingsStore: ObservableObject {
         static let semanticEnabled = "semanticEnabled"
         static let embeddingModel = "embeddingModel"
         static let language = "language"
+        static let privacyBlurEnabled = "privacyBlurEnabled"
     }
 
     private init() {
         language = defaults.string(forKey: Keys.language) ?? "system"
+        privacyBlurEnabled = defaults.object(forKey: Keys.privacyBlurEnabled) as? Bool ?? false
         captureEnabled = defaults.object(forKey: Keys.captureEnabled) as? Bool ?? true
         ignoreConcealed = defaults.object(forKey: Keys.ignoreConcealed) as? Bool ?? true
         if let stored = defaults.array(forKey: Keys.excludedBundleIDs) as? [String] {

@@ -39,7 +39,13 @@ final class EmbeddingIndexer: ObservableObject {
     }
 
     private func run(_ id: UUID) async {
-        pending -= 1
+        pending = max(0, pending - 1)
+
+        // Yield Ollama to Autopilot analyze / organize — embeddings can wait.
+        while AIRuntime.shared.isAnalyzing || AIRuntime.shared.isOrganizeBusy {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+
         isIndexing = true
         defer { isIndexing = false }
 
@@ -51,6 +57,8 @@ final class EmbeddingIndexer: ObservableObject {
             let model = SettingsStore.shared.embeddingModel
             let vector = try await OllamaClient.shared.embed(text, model: model)
             MemoryEngine.shared.storeEmbedding(id: id, vector: vector, model: model)
+            // Small gap so a launch backfill can't stampede the local model.
+            try? await Task.sleep(nanoseconds: 120_000_000)
         } catch {
             // Non-fatal: the row stays missing and is retried by the next
             // backfill (e.g. once Ollama is reachable again).

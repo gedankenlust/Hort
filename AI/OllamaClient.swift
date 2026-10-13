@@ -60,14 +60,39 @@ class OllamaClient {
     static let shared = OllamaClient()
 
     private let baseURL: URL
-    private let session: URLSession
+    private var session: URLSession
+    /// When true, `cancelInFlightRequests()` recreates the session after invalidate
+    /// (production shared client). Injected test sessions only cancel tasks.
+    private let recreateSessionOnCancel: Bool
+    private let sessionConfiguration: URLSessionConfiguration
 
     init(
         baseURL: URL = URL(string: "http://localhost:11434")!,
-        session: URLSession = .shared
+        session: URLSession? = nil
     ) {
         self.baseURL = baseURL
-        self.session = session
+        if let session {
+            self.session = session
+            self.sessionConfiguration = .ephemeral
+            self.recreateSessionOnCancel = false
+        } else {
+            let config = URLSessionConfiguration.default
+            self.sessionConfiguration = config
+            self.session = URLSession(configuration: config)
+            self.recreateSessionOnCancel = true
+        }
+    }
+
+    /// Cancels in-flight generate/embed/analyze HTTP work so Autopilot cancel is immediate.
+    func cancelInFlightRequests() {
+        if recreateSessionOnCancel {
+            session.invalidateAndCancel()
+            session = URLSession(configuration: sessionConfiguration)
+        } else {
+            session.getTasksWithCompletionHandler { dataTasks, uploadTasks, downloadTasks in
+                (dataTasks + uploadTasks + downloadTasks).forEach { $0.cancel() }
+            }
+        }
     }
     
     /// Queries the local Ollama instance for installed models.
@@ -90,13 +115,26 @@ class OllamaClient {
     /// Heuristic: embedding models aren't usable for chat / Analyze / Ask.
     static func isEmbeddingModel(_ name: String) -> Bool {
         let lower = name.lowercased()
-        let hints = ["embed", "bge", "minilm", "gte", "e5", "arctic", "nomic"]
+        // "embeddinggemma" / bge / nomic-embed — not "translategemma".
+        if lower.contains("embed") { return true }
+        let hints = ["bge-", "bge:", "minilm", "gte-", "e5-", "arctic"]
         return hints.contains { lower.contains($0) }
     }
 
-    /// Prefer a chat-capable model when snapping a missing/invalid setting.
+    /// Prefer a small, fast chat model for classify/analyze (not embeddings, not huge).
     static func preferredChatModel(from models: [String]) -> String? {
-        models.first(where: { !isEmbeddingModel($0) }) ?? models.first
+        let chat = models.filter { !isEmbeddingModel($0) }
+        guard !chat.isEmpty else { return models.first }
+
+        // Prefer tiny instruct models — best latency for Inbox classify.
+        let sizePreference = ["0.8b", "1b", "1.5b", "2b", "3b", "4b", "7b", "8b"]
+        for size in sizePreference {
+            if let match = chat.first(where: { $0.lowercased().contains(size) }) {
+                return match
+            }
+        }
+        // Stable alphabetical fallback among chat models.
+        return chat.sorted().first
     }
 
     /// Returns the embedding vector for `text` from the given embedding model

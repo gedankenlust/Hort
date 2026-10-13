@@ -67,8 +67,16 @@ struct HortApp: App {
         DispatchQueue.global(qos: .utility).async {
             MemoryEngine.shared.purgeOrphanedFiles()
         }
-        // Backfill semantic-index embeddings for any memories missing one.
-        Task { @MainActor in EmbeddingIndexer.shared.backfill() }
+        // Prefer Inbox sorting over embedding stampede when Organize is on.
+        Task { @MainActor in
+            let settings = SettingsStore.shared
+            if settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize {
+                AIRuntime.shared.backfillOrganize()
+            }
+            // Defer embedding backfill slightly so organize heuristics run first.
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            EmbeddingIndexer.shared.backfill()
+        }
         // Snap stale model settings to installed models so AI features work even
         // if the user never opened Settings (default "llama3" may not exist).
         Task { @MainActor in await HortApp.validateModelSettings() }
