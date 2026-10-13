@@ -34,73 +34,19 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             wordmark
 
-            // Primary navigation
-            VStack(alignment: .leading, spacing: HortSpacing.xs) {
-                SidebarItem(icon: "tray.and.arrow.down", title: "sidebar.inbox",
-                            count: inboxCount,
-                            isActive: selection == .inbox,
-                            action: { selection = .inbox },
-                            dropHandler: { apply($0) { $0.board = nil; $0.isArchived = false } })
-                SidebarItem(icon: "square.stack", title: "sidebar.all",
-                            count: allCount,
-                            isActive: selection == .all,
-                            action: { selection = .all },
-                            dropHandler: { apply($0) { $0.isArchived = false } })
-                SidebarItem(icon: "star", title: "sidebar.favorites",
-                            count: favoritesCount,
-                            isActive: selection == .favorites,
-                            action: { selection = .favorites },
-                            dropHandler: { apply($0) { $0.isFavorite = true; $0.isArchived = false } })
-                SidebarItem(icon: "archivebox", title: "sidebar.archive",
-                            count: archiveCount,
-                            isActive: selection == .archive,
-                            action: { selection = .archive },
-                            dropHandler: { apply($0) { $0.isArchived = true } })
-            }
-            .padding(.horizontal, HortSpacing.sm)
-
-            boardsSection
-
-            if !allTags.isEmpty {
-                HortSectionHeader(title: "sidebar.tags")
-                    .padding(.horizontal, HortSpacing.lg)
-                    .padding(.top, HortSpacing.xl)
-                    .padding(.bottom, HortSpacing.sm)
-
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: HortSpacing.xs) {
-                        ForEach(sortedTags, id: \.self) { tag in
-                            SidebarItem(icon: "number", title: tag,
-                                        count: tagCounts[tag] ?? 0,
-                                        isActive: selection == .tag(tag),
-                                        action: { selection = .tag(tag) },
-                                        dropHandler: { id in
-                                            apply(id) { if !$0.tags.contains(tag) { $0.tags.append(tag) } }
-                                        })
-                                .contextMenu {
-                                    Button { startRenamingTag(tag) } label: {
-                                        Label("sidebar.rename_tag", systemImage: "pencil")
-                                    }
-                                    Button(role: .destructive) { deleteTagGlobally(tag) } label: {
-                                        Label("sidebar.delete_tag", systemImage: "trash")
-                                    }
-                                }
-                        }
-                    }
-                    .padding(.horizontal, HortSpacing.sm)
+            // Middle scrolls; footer stays pinned so status pills remain visible
+            // on short MacBook displays (tags/boards used to eat all height).
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    primaryNavigation
+                    boardsSection
+                    tagsSection
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            Spacer()
-
-            VStack(spacing: HortSpacing.sm) {
-                if settings.aiEnabled {
-                    OllamaIndicator(action: onOpenSettings)
-                }
-                StatusIndicator()
-            }
-            .padding(.horizontal, HortSpacing.md)
-            .padding(.bottom, HortSpacing.md)
+            sidebarFooter
+                .layoutPriority(1)
         }
         .background(HortColors.surface)
         .frame(minWidth: HortSizing.sidebarWidth, idealWidth: HortSizing.sidebarWidth, maxHeight: .infinity, alignment: .top)
@@ -128,7 +74,11 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Wordmark
+    // MARK: - Chrome
+
+    /// Clears macOS traffic lights under `.windowStyle(.hiddenTitleBar)` +
+    /// `.windowToolbarStyle(.unified)` — content otherwise draws under them.
+    private static let titleBarClearance: CGFloat = 32
 
     private var wordmark: some View {
         HStack(spacing: HortSpacing.sm) {
@@ -156,9 +106,92 @@ struct SidebarView: View {
                 .font(HortTypography.label(size: HortTypography.Size.headline))
                 .foregroundColor(HortColors.textPrimary)
             Spacer()
+            HortIconButton(
+                icon: settings.privacyBlurEnabled ? "eye.slash" : "eye",
+                help: settings.privacyBlurEnabled
+                    ? "dashboard.privacy_blur_off_help"
+                    : "dashboard.privacy_blur_help",
+                isActive: settings.privacyBlurEnabled
+            ) {
+                settings.privacyBlurEnabled.toggle()
+            }
             HortIconButton(icon: "gearshape", help: "settings.title", action: onOpenSettings)
         }
-        .padding(HortSpacing.lg)
+        .padding(.horizontal, HortSpacing.lg)
+        .padding(.bottom, HortSpacing.md)
+        .padding(.top, Self.titleBarClearance)
+    }
+
+    private var primaryNavigation: some View {
+        VStack(alignment: .leading, spacing: HortSpacing.xs) {
+            SidebarItem(icon: "tray.and.arrow.down", title: "sidebar.inbox",
+                        count: inboxCount,
+                        isActive: selection == .inbox,
+                        action: { selection = .inbox },
+                        dropHandler: { apply($0) { $0.board = nil; $0.isArchived = false } })
+            SidebarItem(icon: "square.stack", title: "sidebar.all",
+                        count: allCount,
+                        isActive: selection == .all,
+                        action: { selection = .all },
+                        dropHandler: { apply($0) { $0.isArchived = false } })
+            SidebarItem(icon: "star", title: "sidebar.favorites",
+                        count: favoritesCount,
+                        isActive: selection == .favorites,
+                        action: { selection = .favorites },
+                        dropHandler: { apply($0) { $0.isFavorite = true; $0.isArchived = false } })
+            SidebarItem(icon: "archivebox", title: "sidebar.archive",
+                        count: archiveCount,
+                        isActive: selection == .archive,
+                        action: { selection = .archive },
+                        dropHandler: { apply($0) { $0.isArchived = true } })
+        }
+        .padding(.horizontal, HortSpacing.sm)
+    }
+
+    @ViewBuilder
+    private var tagsSection: some View {
+        if !allTags.isEmpty {
+            HortSectionHeader(title: "sidebar.tags")
+                .padding(.horizontal, HortSpacing.lg)
+                .padding(.top, HortSpacing.xl)
+                .padding(.bottom, HortSpacing.sm)
+
+            LazyVStack(alignment: .leading, spacing: HortSpacing.xs) {
+                ForEach(sortedTags, id: \.self) { tag in
+                    SidebarItem(icon: "number", title: tag,
+                                count: tagCounts[tag] ?? 0,
+                                isActive: selection == .tag(tag),
+                                action: { selection = .tag(tag) },
+                                dropHandler: { id in
+                                    apply(id) { if !$0.tags.contains(tag) { $0.tags.append(tag) } }
+                                })
+                        .contextMenu {
+                            Button { startRenamingTag(tag) } label: {
+                                Label("sidebar.rename_tag", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) { deleteTagGlobally(tag) } label: {
+                                Label("sidebar.delete_tag", systemImage: "trash")
+                            }
+                        }
+                }
+            }
+            .padding(.horizontal, HortSpacing.sm)
+            .padding(.bottom, HortSpacing.md)
+        }
+    }
+
+    private var sidebarFooter: some View {
+        VStack(spacing: HortSpacing.sm) {
+            if settings.aiEnabled {
+                OllamaIndicator(action: onOpenSettings)
+            }
+            StatusIndicator()
+        }
+        .padding(.horizontal, HortSpacing.md)
+        .padding(.top, HortSpacing.sm)
+        .padding(.bottom, HortSpacing.md)
+        .frame(maxWidth: .infinity)
+        .background(HortColors.surface)
     }
 
     // MARK: - Boards (user-created)
@@ -568,55 +601,110 @@ struct OllamaIndicator: View {
     }
 
     private var label: String {
+        // Prefer organize progress — that's what the user is watching for filing.
+        if runtime.isOrganizeBusy {
+            return organizeLabel
+        }
         if runtime.isAnalyzing {
             let queued = runtime.queuedCount
-            return queued > 0
+            let analyze = queued > 0
                 ? String(format: L("sidebar.ollama.analyzing_queued"), "\(queued)")
                 : L("sidebar.ollama.analyzing")
-        }
-        if runtime.isOrganizeBusy {
-            let remaining = runtime.organizeRemaining
-            let outstanding = runtime.organizeInboxOutstanding
-            if runtime.isOrganizeThermalPaused {
-                return L("sidebar.ollama.organizing_thermal")
-            }
-            if runtime.isOrganizePaused {
-                return L("sidebar.ollama.organizing_paused")
-            }
-            if runtime.organizeBatchTotal > 0 {
-                let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
-                if outstanding > 0 {
-                    return String(
-                        format: L("sidebar.ollama.organizing_batch_more"),
-                        "\(done)",
-                        "\(runtime.organizeBatchTotal)",
-                        "\(outstanding)"
-                    )
-                }
+            if runtime.organizeInboxOutstanding > 0 {
                 return String(
-                    format: L("sidebar.ollama.organizing_batch"),
-                    "\(done)",
-                    "\(runtime.organizeBatchTotal)"
+                    format: L("sidebar.ollama.analyzing_then_organize"),
+                    analyze,
+                    "\(runtime.organizeInboxOutstanding)"
                 )
             }
-            return remaining > 1
-                ? String(format: L("sidebar.ollama.organizing_queued"), "\(remaining)")
-                : L("sidebar.ollama.organizing")
+            return analyze
         }
         if runtime.reachable == false { return L("sidebar.ollama.offline") }
+        if runtime.organizeFiledCount > 0, case .filed(let board, let folder) = runtime.lastOrganizeOutcome {
+            if let folder, !folder.isEmpty {
+                return String(
+                    format: L("sidebar.ollama.organized_folder_count"),
+                    "\(runtime.organizeFiledCount)",
+                    board,
+                    folder
+                )
+            }
+            return String(
+                format: L("sidebar.ollama.organized_count"),
+                "\(runtime.organizeFiledCount)",
+                board
+            )
+        }
         if case .filed(let board, let folder) = runtime.lastOrganizeOutcome {
             if let folder, !folder.isEmpty {
                 return String(format: L("sidebar.ollama.organized_folder"), board, folder)
             }
             return String(format: L("sidebar.ollama.organized"), board)
         }
+        if runtime.organizeInboxOutstanding > 0, settings.aiAutopilotOrganize {
+            return String(
+                format: L("sidebar.ollama.inbox_unfiled"),
+                "\(runtime.organizeInboxOutstanding)"
+            )
+        }
         return String(format: L("sidebar.ollama.model"), settings.aiModel)
+    }
+
+    private var organizeLabel: String {
+        let remaining = runtime.organizeRemaining
+        let outstanding = runtime.organizeInboxOutstanding
+        let filed = runtime.organizeFiledCount
+        if runtime.isOrganizeThermalPaused {
+            return L("sidebar.ollama.organizing_thermal")
+        }
+        if runtime.isOrganizePaused {
+            return L("sidebar.ollama.organizing_paused")
+        }
+        if runtime.organizeBatchTotal > 0 {
+            let done = min(runtime.organizeBatchDone, runtime.organizeBatchTotal)
+            if filed > 0, outstanding > 0 {
+                return String(
+                    format: L("sidebar.ollama.organizing_filed_batch"),
+                    "\(filed)",
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            if outstanding > 0 {
+                return String(
+                    format: L("sidebar.ollama.organizing_batch_more"),
+                    "\(done)",
+                    "\(runtime.organizeBatchTotal)",
+                    "\(outstanding)"
+                )
+            }
+            return String(
+                format: L("sidebar.ollama.organizing_batch"),
+                "\(done)",
+                "\(runtime.organizeBatchTotal)"
+            )
+        }
+        if filed > 0 {
+            return String(
+                format: L("sidebar.ollama.organizing_filed"),
+                "\(filed)",
+                "\(max(remaining, outstanding))"
+            )
+        }
+        return remaining > 1
+            ? String(format: L("sidebar.ollama.organizing_queued"), "\(remaining)")
+            : L("sidebar.ollama.organizing")
+    }
+
+    private var isBusy: Bool {
+        runtime.isAnalyzing || runtime.isOrganizeBusy || runtime.queuedCount > 0
     }
 
     var body: some View {
         Button(action: {
-            if runtime.isOrganizeBusy {
-                runtime.cancelOrganize()
+            if isBusy {
+                runtime.cancelAllAutopilot()
             } else {
                 action()
             }
@@ -647,7 +735,7 @@ struct OllamaIndicator: View {
                     .foregroundColor(tint)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Image(systemName: "cpu")
+                Image(systemName: isBusy ? "xmark.circle.fill" : "cpu")
                     .font(.system(size: 10))
                     .foregroundColor(tint)
             }
@@ -665,15 +753,21 @@ struct OllamaIndicator: View {
         .buttonStyle(.plain)
         .help(organizeHelp)
         .accessibilityLabel(label)
-        .onAppear { runtime.refreshReachability() }
+        .onAppear {
+            runtime.refreshReachability()
+            runtime.refreshOrganizeOutstanding()
+        }
         .onReceive(pollTimer) { _ in
-            if !runtime.isAnalyzing, !runtime.isOrganizeBusy { runtime.refreshReachability() }
+            if !runtime.isAnalyzing, !runtime.isOrganizeBusy {
+                runtime.refreshReachability()
+                runtime.refreshOrganizeOutstanding()
+            }
         }
     }
 
     private var organizeHelp: String {
-        if runtime.isOrganizeBusy {
-            return L("sidebar.ollama.organizing_cancel_help")
+        if isBusy {
+            return L("sidebar.ollama.stop_help")
         }
         return runtime.lastError.map { "AI error: \($0) - Click to open settings" }
             ?? "Local AI model - Click to open settings"

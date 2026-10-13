@@ -24,6 +24,18 @@ final class OllamaClientTests: XCTestCase {
         XCTAssertEqual(models, ["alpha", "zeta"])
     }
 
+    func testPreferredChatModelPrefersTinyInstruct() {
+        let models = [
+            "bge-m3:latest",
+            "qwen3.5:4b-mlx",
+            "qwen3.5:0.8b-mlx",
+            "embeddinggemma:latest"
+        ]
+        XCTAssertEqual(OllamaClient.preferredChatModel(from: models), "qwen3.5:0.8b-mlx")
+        XCTAssertTrue(OllamaClient.isEmbeddingModel("embeddinggemma:latest"))
+        XCTAssertFalse(OllamaClient.isEmbeddingModel("translategemma:latest"))
+    }
+
     func testFetchModelsReportsOfflineServer() async {
         MockURLProtocol.handler = { request in
             let response = HTTPURLResponse(

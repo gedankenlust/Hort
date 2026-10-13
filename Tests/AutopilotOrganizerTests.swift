@@ -186,7 +186,7 @@ final class AutopilotOrganizerTests: XCTestCase {
         XCTAssertEqual(ids.count, 3)
         XCTAssertEqual(ids, Array(memories.prefix(3).map(\.id)))
         XCTAssertEqual(AutopilotOrganizer.unfiledInboxCount(from: memories), 10)
-        XCTAssertEqual(AutopilotOrganizer.maxBackfillBatch, 10)
+        XCTAssertEqual(AutopilotOrganizer.maxBackfillBatch, 40)
     }
 
     // MARK: - Local-first heuristics
@@ -286,7 +286,34 @@ final class AutopilotOrganizerTests: XCTestCase {
         XCTAssertEqual(chunks[1].count, 3)
         XCTAssertEqual(chunks[2].count, 1)
         XCTAssertEqual(AutopilotOrganizer.chunkIDs([], size: 5), [])
-        XCTAssertEqual(AutopilotOrganizer.maxClassifyBatch, 5)
+        XCTAssertEqual(AutopilotOrganizer.maxClassifyBatch, 8)
+    }
+
+    func testHeuristicMatchesContentBoardToken() {
+        let boards = [Board(name: "Recipes", folders: ["Baking"])]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: [],
+            summary: "",
+            contentPreview: "My favorite recipes for sourdough this weekend",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Recipes")
+        XCTAssertGreaterThanOrEqual(proposal?.confidence ?? 0, AutopilotOrganizer.minAssignConfidence)
+    }
+
+    func testHeuristicMatchesUniqueFolderInContent() {
+        let boards = [
+            Board(name: "Work", folders: ["Design Reviews"]),
+            Board(name: "Personal", folders: ["Garden"])
+        ]
+        let proposal = AutopilotOrganizer.heuristicProposal(
+            tags: [],
+            summary: "",
+            contentPreview: "Notes from today's design reviews with the team",
+            existingBoards: boards
+        )
+        XCTAssertEqual(proposal?.board, "Work")
+        XCTAssertEqual(proposal?.folder, "Design Reviews")
     }
 
     // MARK: - Ollama response parsing

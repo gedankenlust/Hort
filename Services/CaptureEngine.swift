@@ -125,6 +125,21 @@ class CaptureEngine: ObservableObject {
         guard trimmed.count >= Self.autopilotMinChars || imagePath != nil else { return }
         let model = settings.aiModel
         Task { @MainActor in
+            // Organize-first: file from local heuristics before spending a full
+            // analyze round-trip. When the Inbox backlog is large, defer analyze
+            // so sorting isn't starved by endless Ollama summaries.
+            if settings.aiAutopilotOrganize {
+                if AIRuntime.shared.tryQuickOrganize(objectID: objectID, content: trimmed) {
+                    return
+                }
+                AIRuntime.shared.refreshOrganizeOutstanding()
+                let backlog = AIRuntime.shared.organizeInboxOutstanding
+                if backlog > 80, imagePath == nil {
+                    // Prefer filing the pile; enqueue organize-only (no re-analyze).
+                    AIRuntime.shared.enqueueOrganize(objectID: objectID)
+                    return
+                }
+            }
             AIRuntime.shared.enqueueAutopilot(objectID: objectID, content: trimmed, model: model, imagePath: imagePath)
         }
     }

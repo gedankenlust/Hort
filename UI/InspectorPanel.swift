@@ -77,9 +77,14 @@ struct InspectorPanel: View {
                 }
 
                 VStack(spacing: HortSpacing.sm) {
-                    metaRow(LocalizedStringKey("inspector.source"), memory.sourceApp ?? "Unknown")
-                    if let board = memory.board { metaRow(LocalizedStringKey("inspector.board"), board) }
-                    if let folder = memory.folder { metaRow(LocalizedStringKey("inspector.folder"), folder) }
+                    metaRow(LocalizedStringKey("inspector.source"), memory.sourceApp ?? "Unknown",
+                            sensitive: true)
+                    if let board = memory.board {
+                        metaRow(LocalizedStringKey("inspector.board"), board, sensitive: true)
+                    }
+                    if let folder = memory.folder {
+                        metaRow(LocalizedStringKey("inspector.folder"), folder, sensitive: true)
+                    }
                     metaRow(LocalizedStringKey("inspector.id"), String(memory.id.uuidString.prefix(8)).lowercased())
                 }
 
@@ -92,9 +97,11 @@ struct InspectorPanel: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                                 .textSelection(.enabled)
+                                .privacyBlur(settings.privacyBlurEnabled)
                             Spacer()
                             HortIconButton(icon: "doc.on.doc",
-                                           help: LocalizedStringKey("inspector.copy")) {
+                                           help: LocalizedStringKey("inspector.copy"),
+                                           disabled: settings.privacyBlurEnabled) {
                                 ClipboardMonitor.shared.writeWithoutCapture(path)
                             }
                         }
@@ -337,6 +344,7 @@ struct InspectorPanel: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(HortColors.accentSoft)
                                     .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
+                                    .privacyBlur(settings.privacyBlurEnabled)
                                 HortButton(title: LocalizedStringKey("inspector.copy"),
                                            icon: "doc.on.doc",
                                            style: .secondary) {
@@ -412,6 +420,8 @@ struct InspectorPanel: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
+                    .privacyBlur(settings.privacyBlurEnabled, radius: PrivacyBlur.image,
+                                 disableHitTesting: false)
             } else {
                 Image(systemName: iconName(for: memory.type))
                     .font(HortTypography.label(size: 14))
@@ -443,7 +453,8 @@ struct InspectorPanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func metaRow(_ label: LocalizedStringKey, _ value: String) -> some View {
+    private func metaRow(_ label: LocalizedStringKey, _ value: String,
+                         sensitive: Bool = false) -> some View {
         HStack {
             Text(label)
                 .font(HortTypography.label(size: HortTypography.Size.caption, weight: .medium))
@@ -453,6 +464,7 @@ struct InspectorPanel: View {
                 .font(HortTypography.technical())
                 .foregroundColor(HortColors.textSecondary)
                 .lineLimit(1)
+                .privacyBlur(sensitive && settings.privacyBlurEnabled)
         }
     }
 
@@ -489,6 +501,8 @@ struct InspectorPanel: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .frame(maxHeight: 280)
+                    .privacyBlur(settings.privacyBlurEnabled, radius: PrivacyBlur.image,
+                                 disableHitTesting: false)
             } else {
                 HStack(spacing: HortSpacing.sm) {
                     Image(systemName: iconName(for: memory.type))
@@ -529,6 +543,7 @@ struct InspectorPanel: View {
                             .lineSpacing(3)
                             .foregroundColor(HortColors.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .privacyBlur(settings.privacyBlurEnabled)
                     }
                     HStack(spacing: HortSpacing.sm) {
                         ProgressView()
@@ -555,6 +570,7 @@ struct InspectorPanel: View {
                             RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous)
                                 .strokeBorder(HortColors.accent.opacity(0.2), lineWidth: 1)
                         )
+                        .privacyBlur(settings.privacyBlurEnabled)
                     HortButton(title: LocalizedStringKey("inspector.reanalyze"),
                                icon: "sparkles",
                                style: .secondary) {
@@ -629,6 +645,7 @@ struct InspectorPanel: View {
                     }
                 }
             }
+            .privacyBlur(settings.privacyBlurEnabled)
         }
         HortTextField(
             placeholder: LocalizedStringKey("inspector.add_tag"),
@@ -644,6 +661,8 @@ struct InspectorPanel: View {
                 .buttonStyle(.plain)
             )
         )
+        .opacity(settings.privacyBlurEnabled ? 0.35 : 1)
+        .allowsHitTesting(!settings.privacyBlurEnabled)
     }
 
     private func addTag(to memory: MemoryObject) {

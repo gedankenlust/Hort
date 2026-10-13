@@ -45,12 +45,16 @@
 "settings.privacy.status.none" = "None";
 "settings.privacy.ignore_passwords" = "Ignore password/concealed clipboard";
 "settings.privacy.ignore_passwords_desc" = "Skips items marked sensitive (e.g. password managers)";
+"settings.privacy.blur" = "Blur content for screenshots";
+"settings.privacy.blur_desc" = "Hides titles, text, URLs, OCR, paths, and thumbnails instantly so window screenshots stay private.";
 "settings.privacy.screenshot_warning" = "Desktop screenshots are captured regardless of the active application. Manually delete sensitive images from the feed if needed.";
+"privacy.blur_enable" = "Blur content for screenshots";
+"privacy.blur_disable" = "Show content again";
 "settings.ai.title" = "Local AI (Ollama)";
 "settings.ai.enabled" = "Enable local AI analysis";
 "settings.ai.autopilot" = "AI Autopilot (Auto background analysis)";
 "settings.ai.autopilot_organize" = "Autopilot organize";
-"settings.ai.autopilot_organize_desc" = "After analysis, file captures into boards and folders — including Inbox. Prefers local matching from tags/summaries (no model). Otherwise tidies in tiny batches (max 10) with cool-downs, and pauses if your Mac runs hot. Use Tidy more for the next batch.";
+"settings.ai.autopilot_organize_desc" = "Files captures into boards and folders — including Inbox. Prefers fast local matching from tags/summaries/content (no model). LLM only for leftovers, in small batches with short cool-downs; pauses if your Mac runs hot. Use Tidy more for another LLM wave.";
 "settings.ai.autopilot_organize_tidy" = "Tidy Inbox now";
 "settings.ai.autopilot_organize_tidy_more" = "Tidy more";
 "settings.ai.autopilot_organize_pause" = "Pause";
@@ -161,6 +165,8 @@
 "dashboard.archive_old" = "Archive old items";
 "dashboard.archive_week" = "Archive older than 7 days";
 "dashboard.archive_month" = "Archive older than 30 days";
+"dashboard.privacy_blur_help" = "Blur all card text and links for safe screenshots";
+"dashboard.privacy_blur_off_help" = "Show card text and links again";
 
 /* Onboarding */
 "onboarding.status" = "Ready";
@@ -213,14 +219,21 @@
 /* Ollama status */
 "sidebar.ollama.analyzing" = "Analyzing…";
 "sidebar.ollama.analyzing_queued" = "Analyzing… (+%@)";
+"sidebar.ollama.analyzing_then_organize" = "%@ · %@ unfiled";
 "sidebar.ollama.organizing" = "Organizing…";
 "sidebar.ollama.organizing_queued" = "Organizing… %@ left";
 "sidebar.ollama.organizing_batch" = "Organizing… %@/%@";
 "sidebar.ollama.organizing_batch_more" = "Organizing… %@/%@ · %@ left";
+"sidebar.ollama.organizing_filed" = "Filed %@ · %@ left";
+"sidebar.ollama.organizing_filed_batch" = "Filed %@ · %@/%@ · %@ left";
 "sidebar.ollama.organizing_paused" = "Organize paused";
 "sidebar.ollama.organizing_thermal" = "Paused for heat";
 "sidebar.ollama.organizing_cancel_help" = "Click to cancel organizing";
+"sidebar.ollama.stop_help" = "Click to stop analyzing / organizing";
 "sidebar.ollama.organized" = "Filed → %@";
 "sidebar.ollama.organized_folder" = "Filed → %@ / %@";
+"sidebar.ollama.organized_count" = "Filed %@ → %@";
+"sidebar.ollama.organized_folder_count" = "Filed %@ → %@ / %@";
+"sidebar.ollama.inbox_unfiled" = "%@ unfiled in Inbox";
 "sidebar.ollama.offline" = "Ollama offline";
 "sidebar.ollama.model" = "Ollama: %@";
