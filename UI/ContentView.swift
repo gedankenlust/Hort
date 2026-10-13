@@ -18,21 +18,31 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Two-column split + trailing `.inspector` (not a third NavigationSplit
-            // column). The old content/detail split left the detail pane blank on
-            // macOS because card selection is custom — not NavigationLink-driven —
-            // so the system detail column never bound to the selected memory.
+            // Sidebar + detail. The inspector is a real trailing column inside
+            // the detail (not `.inspector`), because the system inspector
+            // column misaligns hover/hit-testing under our hidden-title-bar
+            // window — mouse and buttons end up vertically offset.
+            // Card selection is custom (not NavigationLink), so a third
+            // NavigationSplitView column would stay blank.
             NavigationSplitView {
                 SidebarView(selection: $app.selection,
                             onOpenSettings: { app.showingSettings = true })
             } detail: {
-                DashboardFeedView(selection: app.selection,
-                             selectedMemories: $app.selectedMemories)
-                    .frame(minWidth: 400)
-            }
-            .inspector(isPresented: .constant(true)) {
-                InspectorPanel(selectedMemories: $app.selectedMemories)
-                    .inspectorColumnWidth(min: 280, ideal: HortSizing.inspectorWidth, max: 520)
+                HStack(spacing: 0) {
+                    DashboardFeedView(selection: app.selection,
+                                 selectedMemories: $app.selectedMemories)
+                        .frame(minWidth: 400)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Rectangle()
+                        .fill(HortColors.border)
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+
+                    InspectorPanel(selectedMemories: $app.selectedMemories)
+                        .frame(width: HortSizing.inspectorWidth)
+                        .frame(maxHeight: .infinity)
+                }
             }
             .sheet(isPresented: $app.showingSettings) {
                 SettingsView()
