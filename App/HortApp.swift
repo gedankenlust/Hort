@@ -146,18 +146,21 @@ struct HortApp: App {
             }
 
             CommandMenu("Memory") {
-                Button("Search") { app.focusSearch() }
+                Button(LocalizedStringKey("menu.search")) { app.focusSearch() }
                     .keyboardShortcut("f", modifiers: .command)
-                Button("Ask your memory…") { app.showingAsk = true }
+                Button(LocalizedStringKey("menu.ask")) { app.showingAsk = true }
                     .keyboardShortcut("l", modifiers: .command)
                     .disabled(!settings.semanticEnabled)
-                Button("Export Shown…") { app.requestExport() }
+                Button(LocalizedStringKey("menu.export")) { app.requestExport() }
                     .keyboardShortcut("e", modifiers: .command)
                 Divider()
                 // ⌘A is bound in the feed view itself (more reliable than a
                 // menu command, which can swallow the first press without focus).
-                Button("Select All") { app.selectAll() }
-                Button("Delete Selected") { app.deleteSelected() }
+                Button(LocalizedStringKey("menu.select_all")) { app.selectAll() }
+                Button(LocalizedStringKey("menu.find_duplicates")) { app.findDuplicates() }
+                Button(LocalizedStringKey("menu.delete_duplicates")) { app.requestDeleteDuplicates() }
+                    .disabled(app.selectedMemories.isEmpty)
+                Button(LocalizedStringKey("menu.delete_selected")) { app.deleteSelected() }
                     .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(app.selectedMemories.isEmpty)
             }

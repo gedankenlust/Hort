@@ -25,6 +25,9 @@ struct DashboardFeedView: View {
     @AppStorage("feedViewMode") private var viewMode: FeedViewMode = .grid
     @State private var newCardIDs: Set<UUID> = []
     @State private var showArchiveOldDialog = false
+    @State private var showDeleteDuplicatesDialog = false
+    @State private var pendingDuplicatePlan: DuplicateDetector.SelectionPlan?
+    @State private var duplicateStatusNote: String?
 
     // Flexible columns: as many as fit at the minimum width, each stretching to
     // fill the remaining space so cards expand/contract with the column width.
@@ -68,7 +71,7 @@ struct DashboardFeedView: View {
 
                 Spacer()
 
-                if let note = exportNote {
+                if let note = duplicateStatusNote ?? exportNote {
                     Text(note)
                         .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
                         .foregroundColor(HortColors.textTertiary)
@@ -85,6 +88,34 @@ struct DashboardFeedView: View {
                     isActive: settings.privacyBlurEnabled
                 ) {
                     settings.privacyBlurEnabled.toggle()
+                }
+                HortIconButton(
+                    icon: "checkmark.circle",
+                    help: "dashboard.select_all_help",
+                    disabled: memories.isEmpty,
+                    action: selectAllVisible
+                )
+                HortIconButton(
+                    icon: "doc.on.doc",
+                    help: "dashboard.find_duplicates_help",
+                    disabled: memories.count < 2,
+                    action: selectDuplicateExtras
+                )
+                HortIconButton(
+                    icon: "trash",
+                    help: "dashboard.delete_duplicates_help",
+                    disabled: selectedMemories.isEmpty,
+                    action: confirmDeleteDuplicates
+                )
+                .confirmationDialog(
+                    deleteDuplicatesDialogTitle,
+                    isPresented: $showDeleteDuplicatesDialog,
+                    titleVisibility: .visible
+                ) {
+                    Button(L("dashboard.delete_duplicates_confirm_action"), role: .destructive) {
+                        performDeleteDuplicates()
+                    }
+                    Button(L("common.cancel"), role: .cancel) {}
                 }
                 if selection == .inbox, memories.count > 10 {
                     HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {
@@ -160,6 +191,12 @@ struct DashboardFeedView: View {
         }
         .onChange(of: app.selectAllToken) { _, _ in
             selectAllVisible()
+        }
+        .onChange(of: app.findDuplicatesToken) { _, _ in
+            selectDuplicateExtras()
+        }
+        .onChange(of: app.deleteDuplicatesToken) { _, _ in
+            confirmDeleteDuplicates()
         }
         .background(selectAllShortcut)
         .background(quickLookShortcut)
@@ -243,6 +280,79 @@ struct DashboardFeedView: View {
     private func selectAllVisible() {
         selectedMemories = Set(memories.map(\.id))
         selectionAnchor = memories.first?.id
+        duplicateStatusNote = nil
+    }
+
+    /// Selects extras in exact-duplicate groups among currently shown cards.
+    /// Keepers (newest in each group) stay unselected.
+    private func selectDuplicateExtras() {
+        let plan = DuplicateDetector.selectionPlan(in: memories, policy: .newest)
+        app.rememberDuplicatePlan(plan)
+        pendingDuplicatePlan = plan
+        guard plan.hasDuplicates else {
+            selectedMemories.removeAll()
+            duplicateStatusNote = L("dashboard.duplicates_none")
+            return
+        }
+        selectedMemories = plan.duplicateIDs
+        selectionAnchor = plan.duplicateIDs.first
+        duplicateStatusNote = String(
+            format: L("dashboard.duplicates_found"),
+            plan.duplicateCount,
+            plan.keeperCount
+        )
+    }
+
+    private var deleteDuplicatesDialogTitle: String {
+        let plan = resolvedDuplicateDeletePlan()
+        return String(
+            format: L("dashboard.delete_duplicates_confirm"),
+            plan.duplicateCount,
+            plan.keeperCount
+        )
+    }
+
+    /// Builds a delete plan from the last Find Duplicates result when the
+    /// selection still matches it; otherwise from groups that intersect the
+    /// current selection (keepers excluded).
+    private func resolvedDuplicateDeletePlan() -> DuplicateDetector.SelectionPlan {
+        if let known = pendingDuplicatePlan ?? app.lastDuplicatePlan,
+           !known.duplicateIDs.isEmpty,
+           known.duplicateIDs.isSubset(of: selectedMemories) || selectedMemories == known.duplicateIDs {
+            return known
+        }
+        let groups = DuplicateDetector.findGroups(in: memories, policy: .newest)
+        let touching = groups.filter { !Set($0.duplicateIDs).isDisjoint(with: selectedMemories) }
+        let extras = Set(touching.flatMap(\.duplicateIDs)).intersection(selectedMemories)
+        let ids = extras.isEmpty ? selectedMemories : extras
+        return DuplicateDetector.SelectionPlan(
+            duplicateIDs: ids,
+            groupCount: touching.count,
+            keeperCount: touching.count,
+            duplicateCount: ids.count
+        )
+    }
+
+    /// Opens confirmation for deleting duplicate extras (never keepers).
+    private func confirmDeleteDuplicates() {
+        let plan = resolvedDuplicateDeletePlan()
+        guard plan.duplicateCount > 0 else { return }
+        pendingDuplicatePlan = plan
+        app.rememberDuplicatePlan(plan)
+        showDeleteDuplicatesDialog = true
+    }
+
+    private func performDeleteDuplicates() {
+        let plan = pendingDuplicatePlan ?? resolvedDuplicateDeletePlan()
+        let keeperIDs = Set(DuplicateDetector.findGroups(in: memories, policy: .newest).map(\.keeperID))
+        let toDelete = plan.duplicateIDs.subtracting(keeperIDs)
+        guard !toDelete.isEmpty else { return }
+
+        selectedMemories = toDelete
+        app.deleteSelected()
+        duplicateStatusNote = nil
+        pendingDuplicatePlan = nil
+        app.rememberDuplicatePlan(nil)
     }
 
     /// A zero-size, invisible button that binds ⌘A inside the view hierarchy.

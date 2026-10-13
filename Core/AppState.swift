@@ -18,6 +18,12 @@ final class AppState: ObservableObject {
     @Published private(set) var focusSearchToken = 0
     @Published private(set) var exportToken = 0
     @Published private(set) var selectAllToken = 0
+    @Published private(set) var findDuplicatesToken = 0
+    @Published private(set) var deleteDuplicatesToken = 0
+
+    /// Last duplicate-selection plan, so delete confirmation can show counts
+    /// (extras to remove vs keepers retained).
+    @Published private(set) var lastDuplicatePlan: DuplicateDetector.SelectionPlan?
 
     private var lastDeleted: [MemoryObject] = []
     private var undoDismissWork: DispatchWorkItem?
@@ -34,6 +40,16 @@ final class AppState: ObservableObject {
 
     /// Signals the feed to select every currently shown card.
     func selectAll() { selectAllToken &+= 1 }
+
+    /// Signals the feed to select extras in exact-duplicate groups (keepers stay clear).
+    func findDuplicates() { findDuplicatesToken &+= 1 }
+
+    /// Signals the feed to confirm-and-delete the currently selected duplicate extras.
+    func requestDeleteDuplicates() { deleteDuplicatesToken &+= 1 }
+
+    func rememberDuplicatePlan(_ plan: DuplicateDetector.SelectionPlan?) {
+        lastDuplicatePlan = plan
+    }
 
     /// Reveals a specific memory: switches to "All" (so it's in the feed) and
     /// selects it. Used when opening a RAG answer's source card. Selecting after

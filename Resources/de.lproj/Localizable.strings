@@ -167,6 +167,13 @@
 "dashboard.archive_month" = "Älter als 30 Tage archivieren";
 "dashboard.privacy_blur_help" = "Karten-Text und Links für sichere Screenshots unscharf machen";
 "dashboard.privacy_blur_off_help" = "Karten-Text und Links wieder anzeigen";
+"dashboard.select_all_help" = "Alle sichtbaren Memories auswählen (⌘A)";
+"dashboard.find_duplicates_help" = "Exakte Duplikate finden und Extras auswählen (neuestes behalten)";
+"dashboard.delete_duplicates_help" = "Ausgewählte Duplikate löschen";
+"dashboard.duplicates_none" = "Keine exakten Duplikate in dieser Ansicht";
+"dashboard.duplicates_found" = "%d Duplikate ausgewählt, %d behalten";
+"dashboard.delete_duplicates_confirm" = "%d Duplikate löschen, %d behalten?";
+"dashboard.delete_duplicates_confirm_action" = "Duplikate löschen";
 
 /* Onboarding */
 "onboarding.status" = "Bereit";
@@ -198,6 +205,15 @@
 
 /* Menu bar */
 "menubar.quit" = "Beenden";
+
+/* Memory menu */
+"menu.search" = "Suchen";
+"menu.ask" = "Gedächtnis fragen…";
+"menu.export" = "Angezeigte exportieren…";
+"menu.select_all" = "Alles auswählen";
+"menu.find_duplicates" = "Duplikate finden";
+"menu.delete_duplicates" = "Duplikate löschen";
+"menu.delete_selected" = "Auswahl löschen";
 
 /* Common */
 "common.cancel" = "Abbrechen";

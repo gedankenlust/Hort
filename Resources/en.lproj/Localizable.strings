@@ -167,6 +167,13 @@
 "dashboard.archive_month" = "Archive older than 30 days";
 "dashboard.privacy_blur_help" = "Blur all card text and links for safe screenshots";
 "dashboard.privacy_blur_off_help" = "Show card text and links again";
+"dashboard.select_all_help" = "Select all visible memories (⌘A)";
+"dashboard.find_duplicates_help" = "Find exact duplicates and select extras (keep newest)";
+"dashboard.delete_duplicates_help" = "Delete selected duplicates";
+"dashboard.duplicates_none" = "No exact duplicates in this view";
+"dashboard.duplicates_found" = "%d duplicates selected, %d kept";
+"dashboard.delete_duplicates_confirm" = "Delete %d duplicates, keep %d?";
+"dashboard.delete_duplicates_confirm_action" = "Delete duplicates";
 
 /* Onboarding */
 "onboarding.status" = "Ready";
@@ -198,6 +205,15 @@
 
 /* Menu bar */
 "menubar.quit" = "Quit";
+
+/* Memory menu */
+"menu.search" = "Search";
+"menu.ask" = "Ask your memory…";
+"menu.export" = "Export Shown…";
+"menu.select_all" = "Select All";
+"menu.find_duplicates" = "Find Duplicates";
+"menu.delete_duplicates" = "Delete Duplicates";
+"menu.delete_selected" = "Delete Selected";
 
 /* Common */
 "common.cancel" = "Cancel";
