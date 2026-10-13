@@ -102,6 +102,7 @@ struct HortApp: App {
     }
     
     @ObservedObject private var app = AppState.shared
+    @ObservedObject private var memorySelection = MemorySelectionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
     /// Deliberately a plain `@AppStorage`, not a `SettingsStore` property: binding
     /// `MenuBarExtra(isInserted:)` straight to an `@Published` var on a class with
@@ -159,10 +160,10 @@ struct HortApp: App {
                 Button(LocalizedStringKey("menu.select_all")) { app.selectAll() }
                 Button(LocalizedStringKey("menu.find_duplicates")) { app.findDuplicates() }
                 Button(LocalizedStringKey("menu.delete_duplicates")) { app.requestDeleteDuplicates() }
-                    .disabled(app.selectedMemories.isEmpty)
+                    .disabled(memorySelection.selectedMemories.isEmpty)
                 Button(LocalizedStringKey("menu.delete_selected")) { app.deleteSelected() }
                     .keyboardShortcut(.delete, modifiers: .command)
-                    .disabled(app.selectedMemories.isEmpty)
+                    .disabled(memorySelection.selectedMemories.isEmpty)
             }
         }
 

@@ -2,10 +2,14 @@ import SwiftUI
 import AppKit
 
 struct InspectorPanel: View {
-    @Binding var selectedMemories: Set<UUID>
-
+    @ObservedObject private var memorySelection = MemorySelectionStore.shared
     @ObservedObject private var engine = MemoryEngine.shared
     @ObservedObject private var settings = SettingsStore.shared
+
+    private var selectedMemories: Set<UUID> {
+        memorySelection.selectedMemories
+    }
+
     @State private var exportedURL: URL?
     @State private var newTag = ""
     @State private var analyzing = false
@@ -36,7 +40,7 @@ struct InspectorPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(HortColors.surface)
-        .onChange(of: selectedMemories) { _, _ in
+        .onChange(of: memorySelection.selectedMemories) { _, _ in
             synthesisResult = nil
             synthesizing = false
             aiError = nil
@@ -153,14 +157,14 @@ struct InspectorPanel: View {
                                    style: .secondary) {
                             let value = !memory.isArchived
                             engine.update(memory) { $0.isArchived = value }
-                            selectedMemories.removeAll()
+                            memorySelection.selectedMemories = []
                         }
                         HortButton(title: LocalizedStringKey("inspector.delete"),
                                    icon: "trash",
                                    style: .destructive) {
                             let deleted = memory
                             engine.delete(memory)
-                            selectedMemories.removeAll()
+                            memorySelection.selectedMemories = []
                             AppState.shared.stashForUndo([deleted])
                         }
                     }
@@ -302,27 +306,27 @@ struct InspectorPanel: View {
                                icon: "star",
                                style: .secondary) {
                         engine.update(ids: Array(selectedMemories)) { $0.isFavorite = true }
-                        selectedMemories.removeAll()
+                        memorySelection.selectedMemories = []
                     }
                     HortButton(title: LocalizedStringKey("inspector.unfavorite_all"),
                                icon: "star.slash",
                                style: .secondary) {
                         engine.update(ids: Array(selectedMemories)) { $0.isFavorite = false }
-                        selectedMemories.removeAll()
+                        memorySelection.selectedMemories = []
                     }
                     if AppState.shared.selection == .archive {
                         HortButton(title: LocalizedStringKey("inspector.unarchive_all"),
                                    icon: "tray.and.arrow.up",
                                    style: .secondary) {
                             engine.update(ids: Array(selectedMemories)) { $0.isArchived = false }
-                            selectedMemories.removeAll()
+                            memorySelection.selectedMemories = []
                         }
                     } else {
                         HortButton(title: LocalizedStringKey("inspector.archive_all"),
                                    icon: "archivebox",
                                    style: .secondary) {
                             engine.update(ids: Array(selectedMemories)) { $0.isArchived = true }
-                            selectedMemories.removeAll()
+                            memorySelection.selectedMemories = []
                         }
                     }
                     if settings.aiEnabled {
@@ -362,15 +366,16 @@ struct InspectorPanel: View {
                     HortButton(title: LocalizedStringKey("inspector.delete_all"),
                                icon: "trash",
                                style: .destructive) {
-                        let objects = selectedMemories.compactMap { engine.fetch(id: $0) }
-                        engine.delete(ids: selectedMemories)
-                        selectedMemories.removeAll()
+                        let ids = selectedMemories
+                        let objects = ids.compactMap { engine.fetch(id: $0) }
+                        memorySelection.selectedMemories = []
                         AppState.shared.stashForUndo(objects)
+                        engine.delete(ids: ids)
                     }
                     HortButton(title: LocalizedStringKey("inspector.clear_selection"),
                                icon: "xmark.circle",
                                style: .ghost) {
-                        selectedMemories.removeAll()
+                        memorySelection.selectedMemories = []
                     }
                 }
                 .padding(.horizontal, HortSpacing.xxl)
@@ -442,7 +447,7 @@ struct InspectorPanel: View {
             $0.folder = nil
             $0.isArchived = false
         }
-        selectedMemories.removeAll()
+        memorySelection.selectedMemories = []
     }
 
     private var emptyState: some View {

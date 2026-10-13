@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Card wrapper providing consistent background, hover, selection, border and shadow.
+///
+/// Shadow radius stays fixed: animating shadow size on hover/selection forces
+/// expensive offscreen passes across every visible LazyVGrid cell during scroll.
 struct HortCard<Content: View>: View {
     let isSelected: Bool
     let isHovering: Bool
@@ -9,26 +12,18 @@ struct HortCard<Content: View>: View {
 
     var body: some View {
         content()
-            .background(isHovering ? HortColors.elevatedHover : HortColors.elevated)
+            .background(isHovering || isSelected ? HortColors.elevatedHover : HortColors.elevated)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: isSelected ? 1.5 : 1)
             )
-            .shadow(color: shadowColor, radius: shadowRadius, y: 4)
+            .shadow(color: .black.opacity(0.22), radius: 4, y: 2)
     }
 
     private var borderColor: Color {
         if isSelected { return HortColors.accent }
         if isHovering { return HortColors.borderStrong }
         return HortColors.border
-    }
-
-    private var shadowColor: Color {
-        .black.opacity(isSelected ? 0.45 : (isHovering ? 0.35 : 0.2))
-    }
-
-    private var shadowRadius: CGFloat {
-        isSelected ? 14 : (isHovering ? 10 : 5)
     }
 }

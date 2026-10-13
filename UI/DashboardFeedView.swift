@@ -8,11 +8,18 @@ enum FeedViewMode: String {
 
 struct DashboardFeedView: View {
     let selection: SidebarSelection
-    @Binding var selectedMemories: Set<UUID>
 
-    @StateObject private var engine = MemoryEngine.shared
+    @ObservedObject private var engine = MemoryEngine.shared
     @ObservedObject private var app = AppState.shared
+    @ObservedObject private var memorySelection = MemorySelectionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
+
+    /// Always reassign the published set (value-type) so mutations notify.
+    private func updateSelection(_ mutate: (inout Set<UUID>) -> Void) {
+        var ids = memorySelection.selectedMemories
+        mutate(&ids)
+        memorySelection.selectedMemories = ids
+    }
     @State private var isSearching = false
     @State private var searchText = ""
     @FocusState private var searchFocused: Bool
@@ -50,10 +57,10 @@ struct DashboardFeedView: View {
                     .background(HortColors.elevated)
                     .clipShape(Capsule())
 
-                if selectedMemories.count >= 1 {
-                    Button(action: { selectedMemories.removeAll() }) {
+                if memorySelection.selectedMemories.count >= 1 {
+                    Button(action: { memorySelection.selectedMemories = [] }) {
                         HStack(spacing: HortSpacing.xs) {
-                            Text("\(selectedMemories.count) " + L("dashboard.selected"))
+                            Text("\(memorySelection.selectedMemories.count) " + L("dashboard.selected"))
                                 .font(HortTypography.label(size: 11))
                                 .monospacedDigit()
                             Image(systemName: "xmark").font(HortTypography.label(size: 9))
@@ -104,7 +111,7 @@ struct DashboardFeedView: View {
                 HortIconButton(
                     icon: "trash",
                     help: "dashboard.delete_duplicates_help",
-                    disabled: selectedMemories.isEmpty,
+                    disabled: memorySelection.selectedMemories.isEmpty,
                     action: confirmDeleteDuplicates
                 )
                 .confirmationDialog(
@@ -179,6 +186,8 @@ struct DashboardFeedView: View {
                         .padding(.vertical, HortSpacing.md)
                     }
                 }
+                // Selection chrome should snap; animating every cell on click feels sluggish.
+                .transaction { $0.animation = nil }
             }
         }
         .background(HortColors.background)
@@ -224,41 +233,77 @@ struct DashboardFeedView: View {
     // MARK: - Subviews
 
     private func card(for memory: MemoryObject) -> some View {
-        MemoryCardView(memory: memory,
-                       isSelected: selectedMemories.contains(memory.id),
-                       boardColor: boardColor(for: memory),
-                       onCopy: { copyToClipboard(memory) },
-                       onFavorite: { engine.update(id: memory.id) { $0.isFavorite.toggle() } },
-                       onArchive: {
-                           engine.update(id: memory.id) { $0.isArchived.toggle() }
-                           selectedMemories.remove(memory.id)
-                       },
-                       onDelete: {
-                           engine.delete(memory)
-                           selectedMemories.remove(memory.id)
-                           app.stashForUndo([memory])
-                       },
-                       onTagClick: { tag in app.selection = .tag(tag) })
-            .overlay(
+        let isNew = newCardIDs.contains(memory.id)
+        return MemoryCardView(
+            memory: memory,
+            isSelected: memorySelection.selectedMemories.contains(memory.id),
+            boardColorHex: boardColorHex(for: memory),
+            privacyBlurEnabled: settings.privacyBlurEnabled,
+            onCopy: { copyToClipboard(memory) },
+            onFavorite: { toggleFavorite(memory) },
+            onArchive: { archiveMemory(memory) },
+            onDelete: { deleteMemory(memory) },
+            onTagClick: { tag in app.selection = .tag(tag) }
+        )
+        // Skip body when only *other* cards' selection changed.
+        .equatable()
+        .overlay {
+            if isNew {
                 RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
-                    .stroke(HortColors.accent, lineWidth: newCardIDs.contains(memory.id) ? 1.5 : 0)
-                    .shadow(color: HortColors.accent.opacity(newCardIDs.contains(memory.id) ? 0.5 : 0), radius: 8)
+                    .stroke(HortColors.accent, lineWidth: 1.5)
+                    .shadow(color: HortColors.accent.opacity(0.5), radius: 8)
                     .allowsHitTesting(false)
-            )
-            .onTapGesture(count: 2) { openQuickLook(memory) }
-            .onTapGesture { handleSelection(of: memory) }
-            .draggable(dragPayload(for: memory)) {
-                dragPreview(for: memory)
             }
-            .help("dashboard.multiselect_hint")
+        }
+        .onTapGesture(count: 2) { openQuickLook(memory) }
+        .onTapGesture { handleSelection(of: memory) }
+        .draggable(dragPayload(for: memory)) {
+            dragPreview(for: memory)
+        }
+        .help("dashboard.multiselect_hint")
+    }
+
+    /// Removes the card from the visible list immediately, then persists the
+    /// soft-delete. Waiting for `dataVersion` → `refreshMemories` made delete
+    /// feel like a full grid reload.
+    private func deleteMemory(_ memory: MemoryObject) {
+        memories.removeAll { $0.id == memory.id }
+        updateSelection { $0.remove(memory.id) }
+        app.stashForUndo([memory])
+        engine.delete(memory)
+    }
+
+    private func archiveMemory(_ memory: MemoryObject) {
+        let willArchive = !memory.isArchived
+        // Sections that exclude the destination state: drop the row immediately.
+        if willArchive, selection != .archive {
+            memories.removeAll { $0.id == memory.id }
+        } else if !willArchive, selection == .archive {
+            memories.removeAll { $0.id == memory.id }
+        } else if let idx = memories.firstIndex(where: { $0.id == memory.id }) {
+            memories[idx].isArchived = willArchive
+        }
+        updateSelection { $0.remove(memory.id) }
+        engine.update(id: memory.id) { $0.isArchived.toggle() }
+    }
+
+    private func toggleFavorite(_ memory: MemoryObject) {
+        let willFavorite = !memory.isFavorite
+        if !willFavorite, selection == .favorites {
+            memories.removeAll { $0.id == memory.id }
+            updateSelection { $0.remove(memory.id) }
+        } else if let idx = memories.firstIndex(where: { $0.id == memory.id }) {
+            memories[idx].isFavorite = willFavorite
+        }
+        engine.update(id: memory.id) { $0.isFavorite.toggle() }
     }
 
     /// Drag payload: all selected ids (newline-separated) when this card is part
     /// of a multi-selection, otherwise just this card — so dragging a selected
     /// card onto a board/section moves the whole selection.
     private func dragPayload(for memory: MemoryObject) -> String {
-        if selectedMemories.contains(memory.id), selectedMemories.count > 1 {
-            return selectedMemories.map(\.uuidString).joined(separator: "\n")
+        if memorySelection.selectedMemories.contains(memory.id), memorySelection.selectedMemories.count > 1 {
+            return memorySelection.selectedMemories.map(\.uuidString).joined(separator: "\n")
         }
         return memory.id.uuidString
     }
@@ -278,7 +323,7 @@ struct DashboardFeedView: View {
 
     /// Selects every currently shown card.
     private func selectAllVisible() {
-        selectedMemories = Set(memories.map(\.id))
+        memorySelection.selectedMemories = Set(memories.map(\.id))
         selectionAnchor = memories.first?.id
         duplicateStatusNote = nil
     }
@@ -290,11 +335,11 @@ struct DashboardFeedView: View {
         app.rememberDuplicatePlan(plan)
         pendingDuplicatePlan = plan
         guard plan.hasDuplicates else {
-            selectedMemories.removeAll()
+            memorySelection.selectedMemories = []
             duplicateStatusNote = L("dashboard.duplicates_none")
             return
         }
-        selectedMemories = plan.duplicateIDs
+        memorySelection.selectedMemories = plan.duplicateIDs
         selectionAnchor = plan.duplicateIDs.first
         duplicateStatusNote = String(
             format: L("dashboard.duplicates_found"),
@@ -318,13 +363,13 @@ struct DashboardFeedView: View {
     private func resolvedDuplicateDeletePlan() -> DuplicateDetector.SelectionPlan {
         if let known = pendingDuplicatePlan ?? app.lastDuplicatePlan,
            !known.duplicateIDs.isEmpty,
-           known.duplicateIDs.isSubset(of: selectedMemories) || selectedMemories == known.duplicateIDs {
+           known.duplicateIDs.isSubset(of: memorySelection.selectedMemories) || memorySelection.selectedMemories == known.duplicateIDs {
             return known
         }
         let groups = DuplicateDetector.findGroups(in: memories, policy: .newest)
-        let touching = groups.filter { !Set($0.duplicateIDs).isDisjoint(with: selectedMemories) }
-        let extras = Set(touching.flatMap(\.duplicateIDs)).intersection(selectedMemories)
-        let ids = extras.isEmpty ? selectedMemories : extras
+        let touching = groups.filter { !Set($0.duplicateIDs).isDisjoint(with: memorySelection.selectedMemories) }
+        let extras = Set(touching.flatMap(\.duplicateIDs)).intersection(memorySelection.selectedMemories)
+        let ids = extras.isEmpty ? memorySelection.selectedMemories : extras
         return DuplicateDetector.SelectionPlan(
             duplicateIDs: ids,
             groupCount: touching.count,
@@ -348,7 +393,7 @@ struct DashboardFeedView: View {
         let toDelete = plan.duplicateIDs.subtracting(keeperIDs)
         guard !toDelete.isEmpty else { return }
 
-        selectedMemories = toDelete
+        memorySelection.selectedMemories = toDelete
         app.deleteSelected()
         duplicateStatusNote = nil
         pendingDuplicatePlan = nil
@@ -370,28 +415,33 @@ struct DashboardFeedView: View {
     /// Click selection: plain = single, ⌘ = toggle, ⇧ = range from the anchor
     /// (last plain/⌘ click) through this card in the current feed order.
     private func handleSelection(of memory: MemoryObject) {
-        // Clicking a card takes focus away from any inspector text field, so the
-        // feed re-claims ⌘A (select all cards) instead of leaving it stuck.
-        NSApp.keyWindow?.makeFirstResponder(nil)
-        app.inspectorTextFocused = false
-
+        // Update selection first so the click feels instant; focus hand-off can wait.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift), let anchor = selectionAnchor,
            let a = memories.firstIndex(where: { $0.id == anchor }),
            let b = memories.firstIndex(where: { $0.id == memory.id }) {
             let lo = min(a, b), hi = max(a, b)
-            selectedMemories = Set(memories[lo...hi].map(\.id))
+            memorySelection.selectedMemories = Set(memories[lo...hi].map(\.id))
             // keep the anchor so the range can be re-adjusted
         } else if flags.contains(.command) {
-            if selectedMemories.contains(memory.id) {
-                selectedMemories.remove(memory.id)
+            if memorySelection.selectedMemories.contains(memory.id) {
+                updateSelection { $0.remove(memory.id) }
             } else {
-                selectedMemories.insert(memory.id)
+                updateSelection { $0.insert(memory.id) }
             }
             selectionAnchor = memory.id
         } else {
-            selectedMemories = [memory.id]
+            memorySelection.selectedMemories = [memory.id]
             selectionAnchor = memory.id
+        }
+
+        // Clicking a card takes focus away from any inspector text field, so the
+        // feed re-claims ⌘A (select all cards) instead of leaving it stuck.
+        if app.inspectorTextFocused {
+            app.inspectorTextFocused = false
+            DispatchQueue.main.async {
+                NSApp.keyWindow?.makeFirstResponder(nil)
+            }
         }
     }
 
@@ -552,12 +602,12 @@ struct DashboardFeedView: View {
 
     @ViewBuilder
     private func dragPreview(for memory: MemoryObject) -> some View {
-        if selectedMemories.contains(memory.id), selectedMemories.count > 1 {
+        if memorySelection.selectedMemories.contains(memory.id), memorySelection.selectedMemories.count > 1 {
             HStack(spacing: HortSpacing.sm) {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(HortTypography.label(size: 11))
                     .foregroundColor(HortColors.accent)
-                Text("\(selectedMemories.count) " + L("dashboard.selected"))
+                Text("\(memorySelection.selectedMemories.count) " + L("dashboard.selected"))
                     .font(HortTypography.label(size: 11))
                     .foregroundColor(HortColors.textPrimary)
             }
@@ -624,13 +674,13 @@ struct DashboardFeedView: View {
     // MARK: - List view
 
     private func listRow(for memory: MemoryObject) -> some View {
-        let selected = selectedMemories.contains(memory.id)
+        let selected = memorySelection.selectedMemories.contains(memory.id)
         return HStack(spacing: HortSpacing.md) {
             Image(systemName: iconName(for: memory.type))
                 .font(HortTypography.label(size: 11))
                 .foregroundColor(listIconTint(memory.type))
                 .frame(width: 22)
-            if let color = boardColor(for: memory) {
+            if let hex = boardColorHex(for: memory), let color = Color(hexString: hex) {
                 Circle().fill(color).frame(width: 7, height: 7)
             }
             VStack(alignment: .leading, spacing: 1) {
@@ -686,10 +736,9 @@ struct DashboardFeedView: View {
         }
     }
 
-    private func boardColor(for memory: MemoryObject) -> Color? {
+    private func boardColorHex(for memory: MemoryObject) -> String? {
         guard let boardName = memory.board else { return nil }
-        return settings.boards.first(where: { $0.name == boardName })?
-            .colorHex.flatMap { Color(hexString: $0) }
+        return settings.boards.first(where: { $0.name == boardName })?.colorHex
     }
 
     private func iconName(for type: MemoryType) -> String {
@@ -713,7 +762,7 @@ struct DashboardFeedView: View {
     }
 
     private func quickLookSelected() {
-        guard selectedMemories.count == 1, let id = selectedMemories.first,
+        guard memorySelection.selectedMemories.count == 1, let id = memorySelection.selectedMemories.first,
               let memory = engine.fetch(id: id) else { return }
         openQuickLook(memory)
     }

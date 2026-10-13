@@ -1,24 +1,37 @@
 import SwiftUI
+import ImageIO
+import AppKit
 
 /// A uniform memory tile. Every card is the same fixed size: a header row, a
 /// flexible content area (image fills it, text sits top-aligned), and a footer
 /// reserved for tags / source — so the grid stays a clean, even raster.
-struct MemoryCardView: View {
+///
+/// Conforms to `Equatable` so the feed can use `.equatable()` and skip body
+/// evaluation when selection changes on *other* cards (the main click jank source).
+struct MemoryCardView: View, Equatable {
     let memory: MemoryObject
     var isSelected: Bool = false
-    var boardColor: Color? = nil
+    /// Board accent as a hex string (Color isn't reliably Equatable).
+    var boardColorHex: String? = nil
+    var privacyBlurEnabled: Bool = false
     var onCopy: (() -> Void)? = nil
     var onFavorite: (() -> Void)? = nil
     var onArchive: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onTagClick: ((String) -> Void)? = nil
 
-    @ObservedObject private var settings = SettingsStore.shared
     @State private var isHovering = false
     @State private var justCopied = false
     @State private var loadedImage: NSImage?
 
-    private var blurOn: Bool { settings.privacyBlurEnabled }
+    /// Closures are intentionally ignored — parent recreates them each pass;
+    /// identity of the rendered card is the data + selection/privacy flags.
+    static func == (lhs: MemoryCardView, rhs: MemoryCardView) -> Bool {
+        lhs.memory == rhs.memory
+            && lhs.isSelected == rhs.isSelected
+            && lhs.boardColorHex == rhs.boardColorHex
+            && lhs.privacyBlurEnabled == rhs.privacyBlurEnabled
+    }
 
     var body: some View {
         HortCard(isSelected: isSelected, isHovering: isHovering) {
@@ -34,7 +47,7 @@ struct MemoryCardView: View {
                             Image(nsImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .privacyBlur(blurOn, radius: PrivacyBlur.image, disableHitTesting: false)
+                                .privacyBlur(privacyBlurEnabled, radius: PrivacyBlur.image, disableHitTesting: false)
                         )
                         .contentShape(Rectangle())
                         .clipped()
@@ -65,7 +78,7 @@ struct MemoryCardView: View {
                         cardContent
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             .padding(.horizontal, HortSpacing.md)
-                            .privacyBlur(blurOn)
+                            .privacyBlur(privacyBlurEnabled)
 
                         footerView(onImage: false)
                     }
@@ -75,12 +88,11 @@ struct MemoryCardView: View {
             .overlay(
                 HortColors.accentSoft
                     .opacity(isSelected ? 0.35 : 0)
-                    .animation(.easeOut(duration: HortAnimation.fast), value: isSelected)
                     .allowsHitTesting(false)
             )
             .overlay(alignment: .topTrailing) { quickActions }
             .overlay(alignment: .leading) {
-                if let color = boardColor {
+                if let hex = boardColorHex, let color = Color(hexString: hex) {
                     RoundedRectangle(cornerRadius: 1.5)
                         .fill(color)
                         .frame(width: 3, height: 24)
@@ -90,13 +102,18 @@ struct MemoryCardView: View {
         }
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: HortAnimation.fast), value: isSelected)
-        .animation(.easeOut(duration: HortAnimation.fast), value: isHovering)
         .task(id: imagePath) {
             guard let path = imagePath else { loadedImage = nil; return }
-            if let cached = ImageCache.shared[path] { loadedImage = cached; return }
-            let img = await Task.detached { NSImage(contentsOfFile: path) }.value
-            ImageCache.shared[path] = img
+            if let cached = ImageCache.shared[path] {
+                loadedImage = cached
+                return
+            }
+            let img = await Task.detached(priority: .utility) {
+                ImageCache.loadDisplayImage(at: path)
+            }.value
+            if let img {
+                ImageCache.shared[path] = img
+            }
             loadedImage = img
         }
     }
@@ -114,9 +131,9 @@ struct MemoryCardView: View {
                                   tint: justCopied ? HortColors.accent : .white,
                                   help: "inspector.copy") {
                     onCopy?()
-                    withAnimation(.easeOut(duration: 0.12)) { justCopied = true }
+                    justCopied = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                        withAnimation(.easeOut(duration: 0.2)) { justCopied = false }
+                        justCopied = false
                     }
                 }
                 quickActionButton("archivebox", help: "inspector.archive") { onArchive?() }
@@ -125,7 +142,6 @@ struct MemoryCardView: View {
             .padding(HortSpacing.xs)
             .background(Color.black.opacity(0.4), in: Capsule())
             .padding(HortSpacing.md)
-            .transition(.opacity)
         }
     }
 
@@ -215,7 +231,7 @@ struct MemoryCardView: View {
             }
             Spacer(minLength: 0)
         }
-        .privacyBlur(blurOn)
+        .privacyBlur(privacyBlurEnabled)
         .frame(height: 34)
         .padding(.horizontal, HortSpacing.md)
         .padding(.bottom, 10)
@@ -280,12 +296,15 @@ struct MemoryCardView: View {
         return memory.type.rawValue.capitalized
     }
 
+    /// Prefer thumbnail path from the model; avoid `fileExists` on every body
+    /// pass (disk hits during scroll/selection redraws). Missing files just
+    /// fail the async load and keep the text fallback.
     private var imagePath: String? {
-        if let thumb = memory.thumbnailPath, FileManager.default.fileExists(atPath: thumb) {
+        if let thumb = memory.thumbnailPath, !thumb.isEmpty {
             return thumb
         }
         if memory.type == .image || memory.type == .screenshot || memory.type == .file,
-           let content = memory.content, FileManager.default.fileExists(atPath: content) {
+           let content = memory.content, content.hasPrefix("/") {
             return content
         }
         return nil
@@ -314,13 +333,43 @@ struct MemoryCardView: View {
 
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
-    private var cache = NSCache<NSString, NSImage>()
-    private init() { cache.countLimit = 200 }
+    /// Max pixel edge for grid display (~2× card width on retina).
+    static let displayMaxPixel: CGFloat = 480
+
+    private let cache = NSCache<NSString, NSImage>()
+    private init() {
+        cache.countLimit = 120
+        cache.totalCostLimit = 64 * 1024 * 1024
+    }
+
     subscript(path: String) -> NSImage? {
         get { cache.object(forKey: path as NSString) }
         set {
-            if let img = newValue { cache.setObject(img, forKey: path as NSString) }
-            else { cache.removeObject(forKey: path as NSString) }
+            if let img = newValue {
+                let cost = Int(img.size.width * img.size.height * 4)
+                cache.setObject(img, forKey: path as NSString, cost: max(cost, 1))
+            } else {
+                cache.removeObject(forKey: path as NSString)
+            }
         }
+    }
+
+    /// Decodes a display-sized thumbnail via ImageIO (cheap incremental decode)
+    /// instead of materializing a full `NSImage` bitmap for large assets.
+    static func loadDisplayImage(at path: String, maxPixel: CGFloat = displayMaxPixel) -> NSImage? {
+        let url = URL(fileURLWithPath: path)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return NSImage(contentsOfFile: path)
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return NSImage(contentsOfFile: path)
+        }
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 }
