@@ -1,6 +1,15 @@
 import SwiftUI
 import Combine
 
+/// Card multi-selection, kept separate from `AppState` so clicking a tile does
+/// not republish into `ContentView` / the sidebar (full NavigationSplitView
+/// rebuilds were a major source of click jank).
+final class MemorySelectionStore: ObservableObject {
+    static let shared = MemorySelectionStore()
+    @Published var selectedMemories: Set<UUID> = []
+    private init() {}
+}
+
 /// Shared navigation and selection state, so menu commands (defined at the App
 /// scene level) and the views can drive the same UI. Transient intents (focus
 /// search, export) are exposed as monotonically increasing tokens that views
@@ -9,7 +18,12 @@ final class AppState: ObservableObject {
     static let shared = AppState()
 
     @Published var selection: SidebarSelection = .inbox
-    @Published var selectedMemories: Set<UUID> = []
+    /// Forwarded to `MemorySelectionStore` so existing call sites keep working
+    /// without republishing AppState on every tile click.
+    var selectedMemories: Set<UUID> {
+        get { MemorySelectionStore.shared.selectedMemories }
+        set { MemorySelectionStore.shared.selectedMemories = newValue }
+    }
     @Published var showingSettings = false
     @Published var showingAsk = false
     @Published var inspectorTextFocused = false
@@ -64,11 +78,13 @@ final class AppState: ObservableObject {
     }
 
     func deleteSelected() {
-        guard !selectedMemories.isEmpty else { return }
-        let objects = selectedMemories.compactMap { MemoryEngine.shared.fetch(id: $0) }
-        MemoryEngine.shared.delete(ids: selectedMemories)
-        selectedMemories.removeAll()
+        let ids = selectedMemories
+        guard !ids.isEmpty else { return }
+        let objects = ids.compactMap { MemoryEngine.shared.fetch(id: $0) }
+        // Clear selection before the DB write so the inspector/feed update immediately.
+        selectedMemories = []
         stashForUndo(objects)
+        MemoryEngine.shared.delete(ids: ids)
     }
 
     func stashForUndo(_ objects: [MemoryObject]) {

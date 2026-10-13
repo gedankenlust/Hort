@@ -29,8 +29,7 @@ struct ContentView: View {
                             onOpenSettings: { app.showingSettings = true })
             } detail: {
                 HStack(spacing: 0) {
-                    DashboardFeedView(selection: app.selection,
-                                 selectedMemories: $app.selectedMemories)
+                    DashboardFeedView(selection: app.selection)
                         .frame(minWidth: 400)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -39,7 +38,7 @@ struct ContentView: View {
                         .frame(width: 1)
                         .frame(maxHeight: .infinity)
 
-                    InspectorPanel(selectedMemories: $app.selectedMemories)
+                    InspectorPanel()
                         .frame(width: HortSizing.inspectorWidth)
                         .frame(maxHeight: .infinity)
                 }
@@ -55,7 +54,7 @@ struct ContentView: View {
             .onChange(of: app.selection) { _, _ in
                 // Clear the selection so the Inspector never shows a card that
                 // the newly selected section no longer displays.
-                app.selectedMemories.removeAll()
+                app.selectedMemories = []
             }
 
             if booting {
