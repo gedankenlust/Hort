@@ -35,4 +35,17 @@ final class ClipboardPrivacyTests: XCTestCase {
             excludedBundleIDs: SettingsStore.defaultExcludedBundleIDs
         ))
     }
+
+    func testCapsOversizedClipboardText() {
+        let small = String(repeating: "a", count: 100)
+        let smallResult = ClipboardMonitor.cappedText(small)
+        XCTAssertEqual(smallResult.text, small)
+        XCTAssertFalse(smallResult.truncated)
+
+        let large = String(repeating: "b", count: ClipboardMonitor.maxTextCaptureBytes + 4096)
+        let largeResult = ClipboardMonitor.cappedText(large)
+        XCTAssertTrue(largeResult.truncated)
+        XCTAssertLessThanOrEqual(largeResult.text.utf8.count, ClipboardMonitor.maxTextCaptureBytes)
+        XCTAssertFalse(largeResult.text.isEmpty)
+    }
 }

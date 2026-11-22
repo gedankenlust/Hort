@@ -11,8 +11,11 @@ struct DashboardFeedView: View {
 
     @ObservedObject private var engine = MemoryEngine.shared
     @ObservedObject private var app = AppState.shared
-    @ObservedObject private var memorySelection = MemorySelectionStore.shared
     @ObservedObject private var settings = SettingsStore.shared
+    /// Intentionally *not* `@ObservedObject`: observing selection here rebuilt the
+    /// entire LazyVGrid on every tile click. Tiles and the selection chip observe
+    /// `MemorySelectionStore` themselves.
+    private var memorySelection: MemorySelectionStore { MemorySelectionStore.shared }
 
     /// Always reassign the published set (value-type) so mutations notify.
     private func updateSelection(_ mutate: (inout Set<UUID>) -> Void) {
@@ -31,8 +34,8 @@ struct DashboardFeedView: View {
     @State private var isSearchPending = false
     @AppStorage("feedViewMode") private var viewMode: FeedViewMode = .grid
     @State private var newCardIDs: Set<UUID> = []
-    @State private var showArchiveOldDialog = false
     @State private var showDeleteDuplicatesDialog = false
+    @State private var deleteDuplicatesTitle = ""
     @State private var pendingDuplicatePlan: DuplicateDetector.SelectionPlan?
     @State private var duplicateStatusNote: String?
 
@@ -57,24 +60,7 @@ struct DashboardFeedView: View {
                     .background(HortColors.elevated)
                     .clipShape(Capsule())
 
-                if memorySelection.selectedMemories.count >= 1 {
-                    Button(action: { memorySelection.selectedMemories = [] }) {
-                        HStack(spacing: HortSpacing.xs) {
-                            Text("\(memorySelection.selectedMemories.count) " + L("dashboard.selected"))
-                                .font(HortTypography.label(size: 11))
-                                .monospacedDigit()
-                            Image(systemName: "xmark").font(HortTypography.label(size: 9))
-                        }
-                        .foregroundColor(HortColors.accent)
-                        .padding(.horizontal, HortSpacing.sm)
-                        .padding(.vertical, 3)
-                        .background(HortColors.accentSoft)
-                        .clipShape(Capsule())
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .help("dashboard.clear_selection_help")
-                }
+                FeedSelectionChip()
 
                 Spacer()
 
@@ -88,55 +74,6 @@ struct DashboardFeedView: View {
                     HortIconButton(icon: "sparkles", help: "ask.help") { app.showingAsk = true }
                 }
                 HortIconButton(
-                    icon: settings.privacyBlurEnabled ? "eye.slash" : "eye",
-                    help: settings.privacyBlurEnabled
-                        ? "dashboard.privacy_blur_off_help"
-                        : "dashboard.privacy_blur_help",
-                    isActive: settings.privacyBlurEnabled
-                ) {
-                    settings.privacyBlurEnabled.toggle()
-                }
-                HortIconButton(
-                    icon: "checkmark.circle",
-                    help: "dashboard.select_all_help",
-                    disabled: memories.isEmpty,
-                    action: selectAllVisible
-                )
-                HortIconButton(
-                    icon: "doc.on.doc",
-                    help: "dashboard.find_duplicates_help",
-                    disabled: memories.count < 2,
-                    action: selectDuplicateExtras
-                )
-                HortIconButton(
-                    icon: "trash",
-                    help: "dashboard.delete_duplicates_help",
-                    disabled: memorySelection.selectedMemories.isEmpty,
-                    action: confirmDeleteDuplicates
-                )
-                .confirmationDialog(
-                    deleteDuplicatesDialogTitle,
-                    isPresented: $showDeleteDuplicatesDialog,
-                    titleVisibility: .visible
-                ) {
-                    Button(L("dashboard.delete_duplicates_confirm_action"), role: .destructive) {
-                        performDeleteDuplicates()
-                    }
-                    Button(L("common.cancel"), role: .cancel) {}
-                }
-                if selection == .inbox, memories.count > 10 {
-                    HortIconButton(icon: "archivebox.circle", help: "dashboard.archive_old") {
-                        showArchiveOldDialog = true
-                    }
-                    .confirmationDialog(L("dashboard.archive_old"),
-                                       isPresented: $showArchiveOldDialog,
-                                       titleVisibility: .visible) {
-                        Button(L("dashboard.archive_week")) { archiveOlderThan(days: 7) }
-                        Button(L("dashboard.archive_month")) { archiveOlderThan(days: 30) }
-                        Button(L("common.cancel"), role: .cancel) {}
-                    }
-                }
-                HortIconButton(
                     icon: viewMode == .grid ? "list.bullet" : "square.grid.2x2",
                     help: viewMode == .grid ? "dashboard.list_view" : "dashboard.grid_view"
                 ) {
@@ -148,6 +85,20 @@ struct DashboardFeedView: View {
                                help: "dashboard.export_help",
                                disabled: memories.isEmpty,
                                action: exportCurrent)
+                FeedMoreMenu(
+                    memoriesEmpty: memories.isEmpty,
+                    memoriesCount: memories.count,
+                    selection: selection,
+                    privacyBlurEnabled: settings.privacyBlurEnabled,
+                    showDeleteDuplicatesDialog: $showDeleteDuplicatesDialog,
+                    deleteDuplicatesDialogTitle: deleteDuplicatesTitle,
+                    onSelectAll: selectAllVisible,
+                    onFindDuplicates: selectDuplicateExtras,
+                    onConfirmDeleteDuplicates: confirmDeleteDuplicates,
+                    onPerformDeleteDuplicates: performDeleteDuplicates,
+                    onArchiveOlderThan: archiveOlderThan,
+                    onTogglePrivacyBlur: { settings.privacyBlurEnabled.toggle() }
+                )
                 searchControl
             }
             .padding(.horizontal, HortSpacing.xxl)
@@ -233,34 +184,21 @@ struct DashboardFeedView: View {
     // MARK: - Subviews
 
     private func card(for memory: MemoryObject) -> some View {
-        let isNew = newCardIDs.contains(memory.id)
-        return MemoryCardView(
+        FeedTile(
             memory: memory,
-            isSelected: memorySelection.selectedMemories.contains(memory.id),
+            isNew: newCardIDs.contains(memory.id),
             boardColorHex: boardColorHex(for: memory),
             privacyBlurEnabled: settings.privacyBlurEnabled,
+            onSelect: { handleSelection(of: memory) },
             onCopy: { copyToClipboard(memory) },
             onFavorite: { toggleFavorite(memory) },
             onArchive: { archiveMemory(memory) },
             onDelete: { deleteMemory(memory) },
-            onTagClick: { tag in app.selection = .tag(tag) }
+            onTagClick: { tag in app.selection = .tag(tag) },
+            onQuickLook: { openQuickLook(memory) },
+            dragPayload: { dragPayload(for: memory) },
+            dragPreview: { dragPreview(for: memory) }
         )
-        // Skip body when only *other* cards' selection changed.
-        .equatable()
-        .overlay {
-            if isNew {
-                RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
-                    .stroke(HortColors.accent, lineWidth: 1.5)
-                    .shadow(color: HortColors.accent.opacity(0.5), radius: 8)
-                    .allowsHitTesting(false)
-            }
-        }
-        .onTapGesture(count: 2) { openQuickLook(memory) }
-        .onTapGesture { handleSelection(of: memory) }
-        .draggable(dragPayload(for: memory)) {
-            dragPreview(for: memory)
-        }
-        .help("dashboard.multiselect_hint")
     }
 
     /// Removes the card from the visible list immediately, then persists the
@@ -348,9 +286,10 @@ struct DashboardFeedView: View {
         )
     }
 
-    private var deleteDuplicatesDialogTitle: String {
-        let plan = resolvedDuplicateDeletePlan()
-        return String(
+    /// Computed only when the dialog opens — duplicate detection hashes files
+    /// across the whole feed and must never run during `body`.
+    private func deleteDuplicatesDialogTitle(for plan: DuplicateDetector.SelectionPlan) -> String {
+        String(
             format: L("dashboard.delete_duplicates_confirm"),
             plan.duplicateCount,
             plan.keeperCount
@@ -384,6 +323,7 @@ struct DashboardFeedView: View {
         guard plan.duplicateCount > 0 else { return }
         pendingDuplicatePlan = plan
         app.rememberDuplicatePlan(plan)
+        deleteDuplicatesTitle = deleteDuplicatesDialogTitle(for: plan)
         showDeleteDuplicatesDialog = true
     }
 
@@ -415,24 +355,28 @@ struct DashboardFeedView: View {
     /// Click selection: plain = single, ⌘ = toggle, ⇧ = range from the anchor
     /// (last plain/⌘ click) through this card in the current feed order.
     private func handleSelection(of memory: MemoryObject) {
-        // Update selection first so the click feels instant; focus hand-off can wait.
-        let flags = NSEvent.modifierFlags
-        if flags.contains(.shift), let anchor = selectionAnchor,
-           let a = memories.firstIndex(where: { $0.id == anchor }),
-           let b = memories.firstIndex(where: { $0.id == memory.id }) {
-            let lo = min(a, b), hi = max(a, b)
-            memorySelection.selectedMemories = Set(memories[lo...hi].map(\.id))
-            // keep the anchor so the range can be re-adjusted
-        } else if flags.contains(.command) {
-            if memorySelection.selectedMemories.contains(memory.id) {
-                updateSelection { $0.remove(memory.id) }
+        // No implicit animation on selection chrome — animating every LazyVGrid
+        // cell border/background on click is a big source of perceived lag.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            let flags = NSEvent.modifierFlags
+            if flags.contains(.shift), let anchor = selectionAnchor,
+               let a = memories.firstIndex(where: { $0.id == anchor }),
+               let b = memories.firstIndex(where: { $0.id == memory.id }) {
+                let lo = min(a, b), hi = max(a, b)
+                memorySelection.selectedMemories = Set(memories[lo...hi].map(\.id))
+            } else if flags.contains(.command) {
+                if memorySelection.selectedMemories.contains(memory.id) {
+                    updateSelection { $0.remove(memory.id) }
+                } else {
+                    updateSelection { $0.insert(memory.id) }
+                }
+                selectionAnchor = memory.id
             } else {
-                updateSelection { $0.insert(memory.id) }
+                memorySelection.selectedMemories = [memory.id]
+                selectionAnchor = memory.id
             }
-            selectionAnchor = memory.id
-        } else {
-            memorySelection.selectedMemories = [memory.id]
-            selectionAnchor = memory.id
         }
 
         // Clicking a card takes focus away from any inspector text field, so the
@@ -450,7 +394,9 @@ struct DashboardFeedView: View {
     private var searchControl: some View {
         if isSearching {
             HortTextField(
-                placeholder: "dashboard.search_placeholder",
+                placeholder: selection == .archive
+                    ? "dashboard.search_archive_placeholder"
+                    : "dashboard.search_placeholder",
                 text: $searchText,
                 leadingIcon: "magnifyingglass",
                 trailingView: AnyView(
@@ -463,7 +409,9 @@ struct DashboardFeedView: View {
                 ),
                 focus: $searchFocused
             )
-            .frame(width: 200)
+            .frame(width: searchFocused ? 280 : 220)
+            .animation(.easeOut(duration: HortAnimation.fast), value: searchFocused)
+            .onExitCommand { closeSearch() }
         } else {
             HortIconButton(icon: "magnifyingglass", help: "dashboard.search") {
                 isSearching = true
@@ -515,7 +463,8 @@ struct DashboardFeedView: View {
                 // keystroke; only search once typing settles.
                 try? await Task.sleep(nanoseconds: 280_000_000)
                 if Task.isCancelled { return }
-                let results = await engine.search(query)
+                let includeArchived = (selection == .archive)
+                let results = await engine.search(query, includeArchived: includeArchived)
                 await MainActor.run {
                     guard !Task.isCancelled, isSearchActive, searchText == query else { return }
                     memories = results
@@ -674,46 +623,18 @@ struct DashboardFeedView: View {
     // MARK: - List view
 
     private func listRow(for memory: MemoryObject) -> some View {
-        let selected = memorySelection.selectedMemories.contains(memory.id)
-        return HStack(spacing: HortSpacing.md) {
-            Image(systemName: iconName(for: memory.type))
-                .font(HortTypography.label(size: 11))
-                .foregroundColor(listIconTint(memory.type))
-                .frame(width: 22)
-            if let hex = boardColorHex(for: memory), let color = Color(hexString: hex) {
-                Circle().fill(color).frame(width: 7, height: 7)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(listTitle(memory))
-                    .font(HortTypography.primary(weight: .medium))
-                    .foregroundColor(HortColors.textPrimary)
-                    .lineLimit(1)
-                if !memory.tags.isEmpty {
-                    Text(memory.tags.prefix(3).joined(separator: ", "))
-                        .font(HortTypography.technical(size: HortTypography.Size.caption))
-                        .foregroundColor(HortColors.textTertiary)
-                        .lineLimit(1)
-                }
-            }
-            .privacyBlur(settings.privacyBlurEnabled)
-            Spacer()
-            if memory.isFavorite {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 9))
-                    .foregroundColor(HortColors.accent)
-            }
-            Text(memory.createdAt, style: .time)
-                .font(HortTypography.technical(size: HortTypography.Size.caption))
-                .monospacedDigit()
-                .foregroundColor(HortColors.textTertiary)
-        }
-        .padding(.horizontal, HortSpacing.xxl)
-        .padding(.vertical, HortSpacing.sm)
-        .background(selected ? HortColors.accentSoft.opacity(0.35) : Color.clear)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { openQuickLook(memory) }
-        .onTapGesture { handleSelection(of: memory) }
-        .draggable(dragPayload(for: memory)) { singleDragPreview(for: memory) }
+        FeedListRow(
+            memory: memory,
+            boardColorHex: boardColorHex(for: memory),
+            privacyBlurEnabled: settings.privacyBlurEnabled,
+            title: listTitle(memory),
+            iconName: iconName(for: memory.type),
+            iconTint: listIconTint(memory.type),
+            onSelect: { handleSelection(of: memory) },
+            onQuickLook: { openQuickLook(memory) },
+            dragPayload: { dragPayload(for: memory) },
+            dragPreview: { singleDragPreview(for: memory) }
+        )
     }
 
     private func listTitle(_ memory: MemoryObject) -> String {
@@ -781,5 +702,243 @@ struct DashboardFeedView: View {
         }
         guard let url = fileURL else { return }
         NSWorkspace.shared.open(url)
+    }
+}
+
+// MARK: - Selection-scoped subviews
+//
+// These observe `MemorySelectionStore` so the parent feed does not rebuild the
+// LazyVGrid on every click.
+
+private struct FeedSelectionChip: View {
+    @ObservedObject private var selection = MemorySelectionStore.shared
+
+    var body: some View {
+        if selection.selectedMemories.count >= 1 {
+            Button(action: { selection.selectedMemories = [] }) {
+                HStack(spacing: HortSpacing.xs) {
+                    Text("\(selection.selectedMemories.count) " + L("dashboard.selected"))
+                        .font(HortTypography.label(size: 11))
+                        .monospacedDigit()
+                    Image(systemName: "xmark").font(HortTypography.label(size: 9))
+                }
+                .foregroundColor(HortColors.accent)
+                .padding(.horizontal, HortSpacing.sm)
+                .padding(.vertical, 3)
+                .background(HortColors.accentSoft)
+                .clipShape(Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("dashboard.clear_selection_help")
+        }
+    }
+}
+
+private struct FeedMoreMenu: View {
+    @ObservedObject private var selection = MemorySelectionStore.shared
+
+    let memoriesEmpty: Bool
+    let memoriesCount: Int
+    let selectionScope: SidebarSelection
+    let privacyBlurEnabled: Bool
+    @Binding var showDeleteDuplicatesDialog: Bool
+    let deleteDuplicatesDialogTitle: String
+    let onSelectAll: () -> Void
+    let onFindDuplicates: () -> Void
+    let onConfirmDeleteDuplicates: () -> Void
+    let onPerformDeleteDuplicates: () -> Void
+    let onArchiveOlderThan: (Int) -> Void
+    let onTogglePrivacyBlur: () -> Void
+
+    init(
+        memoriesEmpty: Bool,
+        memoriesCount: Int,
+        selection selectionScope: SidebarSelection,
+        privacyBlurEnabled: Bool,
+        showDeleteDuplicatesDialog: Binding<Bool>,
+        deleteDuplicatesDialogTitle: String,
+        onSelectAll: @escaping () -> Void,
+        onFindDuplicates: @escaping () -> Void,
+        onConfirmDeleteDuplicates: @escaping () -> Void,
+        onPerformDeleteDuplicates: @escaping () -> Void,
+        onArchiveOlderThan: @escaping (Int) -> Void,
+        onTogglePrivacyBlur: @escaping () -> Void
+    ) {
+        self.memoriesEmpty = memoriesEmpty
+        self.memoriesCount = memoriesCount
+        self.selectionScope = selectionScope
+        self.privacyBlurEnabled = privacyBlurEnabled
+        self._showDeleteDuplicatesDialog = showDeleteDuplicatesDialog
+        self.deleteDuplicatesDialogTitle = deleteDuplicatesDialogTitle
+        self.onSelectAll = onSelectAll
+        self.onFindDuplicates = onFindDuplicates
+        self.onConfirmDeleteDuplicates = onConfirmDeleteDuplicates
+        self.onPerformDeleteDuplicates = onPerformDeleteDuplicates
+        self.onArchiveOlderThan = onArchiveOlderThan
+        self.onTogglePrivacyBlur = onTogglePrivacyBlur
+    }
+
+    var body: some View {
+        Menu {
+            Button(L("dashboard.select_all_help")) { onSelectAll() }
+                .disabled(memoriesEmpty)
+            Button(L("dashboard.find_duplicates_help")) { onFindDuplicates() }
+                .disabled(memoriesCount < 2)
+            Button(L("dashboard.delete_duplicates_help"), role: .destructive) {
+                onConfirmDeleteDuplicates()
+            }
+            .disabled(selection.selectedMemories.isEmpty)
+            if selectionScope == .inbox, memoriesCount > 10 {
+                Divider()
+                Button(L("dashboard.archive_week")) { onArchiveOlderThan(7) }
+                Button(L("dashboard.archive_month")) { onArchiveOlderThan(30) }
+            }
+            Divider()
+            Button(privacyBlurEnabled
+                   ? L("dashboard.privacy_blur_off_help")
+                   : L("dashboard.privacy_blur_help")) {
+                onTogglePrivacyBlur()
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(HortColors.textSecondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .help(L("dashboard.more_actions"))
+        .confirmationDialog(
+            deleteDuplicatesDialogTitle,
+            isPresented: $showDeleteDuplicatesDialog,
+            titleVisibility: .visible
+        ) {
+            Button(L("dashboard.delete_duplicates_confirm_action"), role: .destructive) {
+                onPerformDeleteDuplicates()
+            }
+            Button(L("common.cancel"), role: .cancel) {}
+        }
+    }
+}
+
+private struct FeedTile<Preview: View>: View {
+    let memory: MemoryObject
+    let isNew: Bool
+    let boardColorHex: String?
+    let privacyBlurEnabled: Bool
+    let onSelect: () -> Void
+    let onCopy: () -> Void
+    let onFavorite: () -> Void
+    let onArchive: () -> Void
+    let onDelete: () -> Void
+    let onTagClick: (String) -> Void
+    let onQuickLook: () -> Void
+    let dragPayload: () -> String
+    @ViewBuilder let dragPreview: () -> Preview
+
+    @ObservedObject private var selection = MemorySelectionStore.shared
+
+    var body: some View {
+        let isSelected = selection.selectedMemories.contains(memory.id)
+        Button(action: onSelect) {
+            MemoryCardView(
+                memory: memory,
+                isSelected: isSelected,
+                boardColorHex: boardColorHex,
+                privacyBlurEnabled: privacyBlurEnabled,
+                onCopy: onCopy,
+                onFavorite: onFavorite,
+                onArchive: onArchive,
+                onDelete: onDelete,
+                onTagClick: onTagClick
+            )
+            .equatable()
+            .overlay {
+                if isNew {
+                    RoundedRectangle(cornerRadius: HortRadius.large, style: .continuous)
+                        .stroke(HortColors.accent, lineWidth: 1.5)
+                        .shadow(color: HortColors.accent.opacity(0.5), radius: 8)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture(count: 2).onEnded(onQuickLook))
+        .contextMenu {
+            Button(L("inspector.copy")) { onCopy() }
+            Button(memory.isFavorite ? L("inspector.unfavorite") : L("inspector.favorite")) {
+                onFavorite()
+            }
+            Button(memory.isArchived ? L("inspector.unarchive") : L("inspector.archive")) {
+                onArchive()
+            }
+            Divider()
+            Button(L("inspector.delete"), role: .destructive) { onDelete() }
+            Divider()
+            Button(L("inspector.quick_look")) { onQuickLook() }
+        }
+        .draggable(dragPayload(), preview: dragPreview)
+        .help("dashboard.multiselect_hint")
+    }
+}
+
+private struct FeedListRow<Preview: View>: View {
+    let memory: MemoryObject
+    let boardColorHex: String?
+    let privacyBlurEnabled: Bool
+    let title: String
+    let iconName: String
+    let iconTint: Color
+    let onSelect: () -> Void
+    let onQuickLook: () -> Void
+    let dragPayload: () -> String
+    @ViewBuilder let dragPreview: () -> Preview
+
+    @ObservedObject private var selection = MemorySelectionStore.shared
+
+    var body: some View {
+        let selected = selection.selectedMemories.contains(memory.id)
+        Button(action: onSelect) {
+            HStack(spacing: HortSpacing.md) {
+                Image(systemName: iconName)
+                    .font(HortTypography.label(size: 11))
+                    .foregroundColor(iconTint)
+                    .frame(width: 22)
+                if let hex = boardColorHex, let color = Color(hexString: hex) {
+                    Circle().fill(color).frame(width: 7, height: 7)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(HortTypography.primary(weight: .medium))
+                        .foregroundColor(HortColors.textPrimary)
+                        .lineLimit(1)
+                    if !memory.tags.isEmpty {
+                        Text(memory.tags.prefix(3).joined(separator: ", "))
+                            .font(HortTypography.technical(size: HortTypography.Size.caption))
+                            .foregroundColor(HortColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+                .privacyBlur(privacyBlurEnabled)
+                Spacer()
+                if memory.isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 9))
+                        .foregroundColor(HortColors.accent)
+                }
+                Text(memory.createdAt, style: .time)
+                    .font(HortTypography.technical(size: HortTypography.Size.caption))
+                    .monospacedDigit()
+                    .foregroundColor(HortColors.textTertiary)
+            }
+            .padding(.horizontal, HortSpacing.xxl)
+            .padding(.vertical, HortSpacing.sm)
+            .background(selected ? HortColors.accentSoft.opacity(0.35) : Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture(count: 2).onEnded(onQuickLook))
+        .draggable(dragPayload(), preview: dragPreview)
     }
 }

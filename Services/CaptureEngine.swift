@@ -120,7 +120,7 @@ class CaptureEngine: ObservableObject {
     private static let autopilotMinChars = 20
 
     private func autopilotAnalyze(objectID: UUID, content: String, settings: SettingsStore, imagePath: String? = nil) {
-        guard settings.aiEnabled, settings.aiAutopilot else { return }
+        guard settings.autopilotActive else { return }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= Self.autopilotMinChars || imagePath != nil else { return }
         let model = settings.aiModel
@@ -128,7 +128,7 @@ class CaptureEngine: ObservableObject {
             // Organize-first: file from local heuristics before spending a full
             // analyze round-trip. When the Inbox backlog is large, defer analyze
             // so sorting isn't starved by endless Ollama summaries.
-            if settings.aiAutopilotOrganize {
+            if settings.autopilotOrganizeActive {
                 if AIRuntime.shared.tryQuickOrganize(objectID: objectID, content: trimmed) {
                     return
                 }

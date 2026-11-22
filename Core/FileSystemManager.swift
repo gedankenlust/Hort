@@ -74,6 +74,7 @@ class FileSystemManager {
             if !fileManager.fileExists(atPath: dir.path) {
                 try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
             }
+            try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
         }
 
         excludeFromBackup(rootURL)
@@ -91,13 +92,15 @@ class FileSystemManager {
     
     func saveAsset(_ data: Data, fileName: String) throws -> URL {
         let targetURL = assetsURL.appendingPathComponent(fileName)
-        try data.write(to: targetURL)
+        try data.write(to: targetURL, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetURL.path)
         return targetURL
     }
     
     func saveThumbnail(_ data: Data, fileName: String) throws -> URL {
         let targetURL = thumbnailsURL.appendingPathComponent(fileName)
-        try data.write(to: targetURL)
+        try data.write(to: targetURL, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetURL.path)
         return targetURL
     }
 }

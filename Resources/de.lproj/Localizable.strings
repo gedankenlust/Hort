@@ -9,6 +9,10 @@
 "sidebar.board_name_placeholder" = "Board-Name…";
 "sidebar.system_live" = "System aktiv";
 "sidebar.capture_paused" = "Erfassung pausiert";
+"sidebar.desktop_access_needed" = "Schreibtisch-Zugriff nötig";
+"sidebar.desktop_access_help" = "Erlaube Hort in den Systemeinstellungen Zugriff auf den Screenshot-Ordner";
+"sidebar.pause_capture" = "Erfassung pausieren";
+"sidebar.resume_capture" = "Erfassung fortsetzen";
 "sidebar.rename_board" = "Board umbenennen";
 "sidebar.remove_board" = "Board löschen";
 "sidebar.new_folder" = "Ordner hinzufügen";
@@ -111,7 +115,9 @@
 "inspector.archive" = "Archivieren";
 "inspector.unarchive" = "Dearchivieren";
 "inspector.delete" = "Löschen";
+"inspector.quick_look" = "Quick Look";
 "inspector.favorite" = "Favorit";
+"inspector.unfavorite" = "Favorit entfernen";
 "inspector.analyze" = "Mit KI analysieren";
 "inspector.reanalyze" = "Erneut analysieren";
 "inspector.analyzing" = "Modell analysiert Inhalt...";
@@ -135,8 +141,10 @@
 
 /* Dashboard */
 "dashboard.search" = "Suche";
-"dashboard.search_placeholder" = "Erinnerungen durchsuchen...";
+"dashboard.search_placeholder" = "Erinnerungen durchsuchen…";
+"dashboard.search_archive_placeholder" = "Archiv durchsuchen…";
 "dashboard.export_help" = "Angezeigte Memories als ZIP exportieren";
+"dashboard.more_actions" = "Weitere Aktionen";
 "dashboard.selected" = "ausgewählt";
 "dashboard.clear_selection_help" = "Auswahl aufheben";
 "dashboard.multiselect_hint" = "⌘-Klick für Mehrfachauswahl";
@@ -186,6 +194,8 @@
 "onboarding.step3.title" = "Lokale Kontrolle";
 "onboarding.step3.desc" = "KI bleibt optional und lokal. Exportiere portable Markdown-ZIPs oder lösche deine gespeicherten Erinnerungen jederzeit.";
 "onboarding.awaiting" = "Warte auf erste Erinnerung…";
+"onboarding.try_copy" = "Kopiere etwas zum Ausprobieren";
+"onboarding.desktop_hint" = "Screenshots kommen aus deinem Screenshot-Ordner (standardmäßig Schreibtisch). Erlaube den Ordnerzugriff, falls macOS fragt.";
 "onboarding.start_capture" = "Capture starten";
 "onboarding.stop_capture" = "Capture stoppen";
 
@@ -206,7 +216,15 @@
 /* Menu bar */
 "menubar.quit" = "Beenden";
 
-/* Memory menu */
+/* App / navigate / memory menus */
+"menu.undo" = "Rückgängig";
+"menu.settings" = "Einstellungen…";
+"menu.navigate" = "Navigation";
+"menu.memory" = "Erinnerung";
+"menu.inbox" = "Eingang";
+"menu.all_memories" = "Alle Erinnerungen";
+"menu.favorites" = "Favoriten";
+"menu.archive" = "Archiv";
 "menu.search" = "Suchen";
 "menu.ask" = "Gedächtnis fragen…";
 "menu.export" = "Angezeigte exportieren…";

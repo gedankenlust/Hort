@@ -37,6 +37,25 @@ final class MemoryEngineTests: XCTestCase {
         XCTAssertEqual(memories.first?.type, .text)
     }
 
+    func testCountUnfiledInboxIgnoresFiledAndArchived() throws {
+        engine.save(MemoryObject(type: .text, content: "inbox-a"))
+        engine.save(MemoryObject(type: .text, content: "inbox-b"))
+
+        var filed = MemoryObject(type: .text, content: "filed")
+        filed.board = "Projects"
+        engine.save(filed)
+
+        var archived = MemoryObject(type: .text, content: "archived")
+        archived.isArchived = true
+        engine.save(archived)
+
+        XCTAssertEqual(engine.countUnfiledInbox(), 2)
+        XCTAssertEqual(
+            engine.countUnfiledInbox(),
+            AutopilotOrganizer.unfiledInboxCount(from: engine.fetchMemories(for: .inbox))
+        )
+    }
+
     func testDeleteMemory() throws {
         let textObj = MemoryObject(type: .text, content: "Delete Me")
         engine.save(textObj)
@@ -240,6 +259,20 @@ final class MemoryEngineTests: XCTestCase {
         XCTAssertEqual(results.first?.id, imageObj.id)
     }
 
+    func testFTS5SearchIncludesArchivedOnlyWhenRequested() throws {
+        let live = MemoryObject(type: .text, content: "UniqueArchiveToken live copy")
+        var archived = MemoryObject(type: .text, content: "UniqueArchiveToken archived copy")
+        archived.isArchived = true
+        engine.save(live)
+        engine.save(archived)
+
+        let defaultResults = engine.keywordSearch("UniqueArchiveToken")
+        XCTAssertEqual(defaultResults.map(\.id), [live.id])
+
+        let archiveResults = engine.keywordSearch("UniqueArchiveToken", includeArchived: true)
+        XCTAssertEqual(archiveResults.map(\.id), [archived.id])
+    }
+
     func testClearEmbeddings() throws {
         let textObj = MemoryObject(type: .text, content: "Test data")
         engine.save(textObj)
@@ -247,15 +280,18 @@ final class MemoryEngineTests: XCTestCase {
         let vector: [Float] = [1.0, 0.0, 0.0] // Must normalize to non-zero
         engine.storeEmbedding(id: textObj.id, vector: vector, model: "test-model")
         
-        var missing = engine.idsMissingEmbedding()
+        var missing = engine.idsMissingEmbedding(currentModel: "test-model")
         XCTAssertFalse(missing.contains(textObj.id))
+
+        // Wrong active model → treat as needing re-embed.
+        XCTAssertTrue(engine.idsMissingEmbedding(currentModel: "other-model").contains(textObj.id))
         
         engine.clearEmbeddings()
         
         let allVecs = engine.allEmbeddings()
         XCTAssertTrue(allVecs.isEmpty)
         
-        missing = engine.idsMissingEmbedding()
+        missing = engine.idsMissingEmbedding(currentModel: "test-model")
         XCTAssertTrue(missing.contains(textObj.id))
     }
 }

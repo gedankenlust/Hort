@@ -26,7 +26,13 @@ final class AppState: ObservableObject {
     }
     @Published var showingSettings = false
     @Published var showingAsk = false
-    @Published var inspectorTextFocused = false
+    /// Publishes only on real changes: it is written on every tile click and
+    /// inspector hover, and each publish re-renders the whole window.
+    var inspectorTextFocused = false {
+        willSet {
+            if newValue != inspectorTextFocused { objectWillChange.send() }
+        }
+    }
     @Published var undoToastVisible = false
 
     @Published private(set) var focusSearchToken = 0

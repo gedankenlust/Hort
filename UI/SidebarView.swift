@@ -1,3 +1,5 @@
+import AppKit
+import Combine
 import SwiftUI
 
 struct SidebarView: View {
@@ -538,18 +540,36 @@ struct SidebarItem: View {
 
 struct StatusIndicator: View {
     @ObservedObject private var capture = CaptureEngine.shared
+    @ObservedObject private var screenshots = ScreenshotMonitor.shared
+
+    private var needsDesktopAccess: Bool {
+        capture.isCapturing && screenshots.accessState == .noAccess
+    }
 
     private var tint: Color {
-        capture.isCapturing ? HortColors.accent : HortColors.warning
+        if needsDesktopAccess { return HortColors.warning }
+        return capture.isCapturing ? HortColors.accent : HortColors.warning
     }
 
     private var statusKey: String {
-        capture.isCapturing ? "sidebar.system_live" : "sidebar.capture_paused"
+        if needsDesktopAccess { return "sidebar.desktop_access_needed" }
+        return capture.isCapturing ? "sidebar.system_live" : "sidebar.capture_paused"
+    }
+
+    private var helpKey: String {
+        if needsDesktopAccess { return "sidebar.desktop_access_help" }
+        return capture.isCapturing ? "sidebar.pause_capture" : "sidebar.resume_capture"
     }
 
     var body: some View {
         Button {
-            capture.toggle()
+            if needsDesktopAccess {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
+                    NSWorkspace.shared.open(url)
+                }
+            } else {
+                capture.toggle()
+            }
         } label: {
             HStack(spacing: HortSpacing.sm) {
                 Circle()
@@ -560,7 +580,9 @@ struct StatusIndicator: View {
                     .font(HortTypography.primary(size: HortTypography.Size.caption, weight: .medium))
                     .foregroundColor(tint)
                 Spacer(minLength: 0)
-                Image(systemName: capture.isCapturing ? "pause.fill" : "play.fill")
+                Image(systemName: needsDesktopAccess
+                      ? "folder.badge.questionmark"
+                      : (capture.isCapturing ? "pause.fill" : "play.fill"))
                     .font(.system(size: 9))
                     .foregroundColor(tint)
             }
@@ -576,7 +598,7 @@ struct StatusIndicator: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(capture.isCapturing ? "Pause capture" : "Resume capture")
+        .help(L(helpKey))
         .accessibilityLabel(Text(LocalizedStringKey(statusKey)))
     }
 }

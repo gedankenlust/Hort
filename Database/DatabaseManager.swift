@@ -13,14 +13,14 @@ class DatabaseManager {
         if inMemory {
             isUsingEphemeralStore = true
             dbQueue = DatabaseManager.makeInMemoryQueue()
-            try? setupSchema()
+            try? migrate()
             return
         }
         let opened = DatabaseManager.openOnDiskQueue()
         dbQueue = opened.queue
         isUsingEphemeralStore = opened.ephemeral
         do {
-            try setupSchema()
+            try migrate()
         } catch {
             // The on-disk database is unusable (e.g. corrupt or a schema clash).
             // Fall back to a fresh in-memory store so the session stays usable
@@ -28,7 +28,7 @@ class DatabaseManager {
             print("❌ Schema setup failed: \(error). Falling back to in-memory database.")
             dbQueue = DatabaseManager.makeInMemoryQueue()
             isUsingEphemeralStore = true
-            try? setupSchema()
+            try? migrate()
         }
     }
 
@@ -47,7 +47,15 @@ class DatabaseManager {
             }
 
             let dbURL = dbFolderURL.appendingPathComponent("hort.sqlite")
-            return (try DatabaseQueue(path: dbURL.path), false)
+            // Restrict directory permissions so other local users can't browse captures.
+            try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dbFolderURL.path)
+            var config = Configuration()
+            config.prepareDatabase { db in
+                // Overwrite deleted page contents instead of leaving clipboard
+                // text in free pages until a VACUUM.
+                try db.execute(sql: "PRAGMA secure_delete = ON")
+            }
+            return (try DatabaseQueue(path: dbURL.path, configuration: config), false)
         } catch {
             print("❌ Failed to open on-disk database: \(error). Falling back to in-memory.")
             return (makeInMemoryQueue(), true)
@@ -68,9 +76,13 @@ class DatabaseManager {
     static func makeInMemory() -> DatabaseManager {
         return DatabaseManager(inMemory: true)
     }
-    
-    private func setupSchema() throws {
-        try dbQueue.write { db in
+
+    /// Versioned schema migrations. Existing installs without a migrator history
+    /// still work: v1 uses ifNotExists / additive ALTER so re-running is safe.
+    private func migrate() throws {
+        var migrator = DatabaseMigrator()
+
+        migrator.registerMigration("v1_baseline") { db in
             try db.create(table: "memoryObject", options: [.ifNotExists]) { t in
                 t.column("id", .text).primaryKey()
                 t.column("type", .text).notNull()
@@ -87,32 +99,23 @@ class DatabaseManager {
                 t.column("isArchived", .boolean).notNull().defaults(to: false)
                 t.column("securityLevel", .integer).notNull().defaults(to: 0)
                 t.column("version", .integer).notNull().defaults(to: 1)
-                // Collection fields persisted as JSON text by GRDB.
                 t.column("attachments", .text)
                 t.column("tags", .text)
                 t.column("metadata", .text)
                 t.column("relatedObjectIDs", .text)
             }
 
-            // Backfill the collection columns for databases created by older
-            // builds that predate them. ADD COLUMN keeps existing data and
-            // avoids a full DatabaseMigrator at this early stage.
             let existing = try Set(db.columns(in: "memoryObject").map(\.name))
             for column in ["attachments", "tags", "metadata", "relatedObjectIDs"] where !existing.contains(column) {
                 try db.execute(sql: "ALTER TABLE memoryObject ADD COLUMN \(column) TEXT")
             }
 
-            // FTS5 search index, rebuilt as a standalone (non external-content)
-            // table. The previous external-content config pointed content_rowid
-            // at the TEXT `id` column, which FTS5 cannot use as a rowid. The
-            // index is currently unused, so dropping it loses nothing.
-            try db.execute(sql: "DROP TABLE IF EXISTS memorySearch")
-            try db.execute(sql: "CREATE VIRTUAL TABLE IF NOT EXISTS memorySearch USING fts5(memoryId UNINDEXED, content, preview, sourceApp, tags)")
+            // Persistent FTS5 index — no longer dropped on every launch.
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE IF NOT EXISTS memorySearch
+                USING fts5(memoryId UNINDEXED, content, preview, sourceApp, tags)
+                """)
 
-            // Local semantic index: one normalized embedding per memory. Unlike
-            // the FTS table this is expensive to regenerate (one model call per
-            // row), so it persists across launches and is only backfilled for
-            // rows that are missing a vector.
             try db.create(table: "memoryVector", options: [.ifNotExists]) { t in
                 t.column("memoryId", .text).primaryKey()
                 t.column("embedding", .blob).notNull()
@@ -120,7 +123,14 @@ class DatabaseManager {
                 t.column("dims", .integer).notNull()
                 t.column("updatedAt", .datetime).notNull()
             }
+
+            try db.create(index: "memoryObject_createdAt", on: "memoryObject", columns: ["createdAt"], ifNotExists: true)
+            try db.create(index: "memoryObject_isArchived", on: "memoryObject", columns: ["isArchived"], ifNotExists: true)
+            try db.create(index: "memoryObject_board", on: "memoryObject", columns: ["board"], ifNotExists: true)
+            try db.create(index: "memoryObject_isFavorite", on: "memoryObject", columns: ["isFavorite"], ifNotExists: true)
         }
+
+        try migrator.migrate(dbQueue)
     }
 }
 

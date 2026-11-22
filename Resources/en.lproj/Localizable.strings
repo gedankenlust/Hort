@@ -9,6 +9,10 @@
 "sidebar.board_name_placeholder" = "Board name…";
 "sidebar.system_live" = "System Live";
 "sidebar.capture_paused" = "Capture Paused";
+"sidebar.desktop_access_needed" = "Desktop access needed";
+"sidebar.desktop_access_help" = "Allow Hort to read the screenshot folder in System Settings";
+"sidebar.pause_capture" = "Pause capture";
+"sidebar.resume_capture" = "Resume capture";
 "sidebar.rename_board" = "Rename board";
 "sidebar.remove_board" = "Remove board";
 "sidebar.new_folder" = "Add folder";
@@ -111,7 +115,9 @@
 "inspector.archive" = "Archive";
 "inspector.unarchive" = "Unarchive";
 "inspector.delete" = "Delete";
+"inspector.quick_look" = "Quick Look";
 "inspector.favorite" = "Favorite";
+"inspector.unfavorite" = "Remove favorite";
 "inspector.analyze" = "Analyze with AI";
 "inspector.reanalyze" = "Re-analyze with AI";
 "inspector.analyzing" = "Model analyzing content...";
@@ -135,8 +141,10 @@
 
 /* Dashboard */
 "dashboard.search" = "Search";
-"dashboard.search_placeholder" = "Search memories...";
+"dashboard.search_placeholder" = "Search memories…";
+"dashboard.search_archive_placeholder" = "Search archive…";
 "dashboard.export_help" = "Export shown memories as a ZIP";
+"dashboard.more_actions" = "More actions";
 "dashboard.selected" = "selected";
 "dashboard.clear_selection_help" = "Clear selection";
 "dashboard.multiselect_hint" = "⌘-click to select multiple";
@@ -186,6 +194,8 @@
 "onboarding.step3.title" = "Local Control";
 "onboarding.step3.desc" = "AI stays optional on localhost. Export portable Markdown ZIPs or delete your stored memories at any time.";
 "onboarding.awaiting" = "Waiting for your first memory…";
+"onboarding.try_copy" = "Copy something to try it";
+"onboarding.desktop_hint" = "Screenshots are picked up from your screenshot folder (Desktop by default). Grant folder access if macOS asks.";
 "onboarding.start_capture" = "Start capture";
 "onboarding.stop_capture" = "Stop capture";
 
@@ -206,7 +216,15 @@
 /* Menu bar */
 "menubar.quit" = "Quit";
 
-/* Memory menu */
+/* App / navigate / memory menus */
+"menu.undo" = "Undo";
+"menu.settings" = "Settings…";
+"menu.navigate" = "Navigate";
+"menu.memory" = "Memory";
+"menu.inbox" = "Inbox";
+"menu.all_memories" = "All Memories";
+"menu.favorites" = "Favorites";
+"menu.archive" = "Archive";
 "menu.search" = "Search";
 "menu.ask" = "Ask your memory…";
 "menu.export" = "Export Shown…";

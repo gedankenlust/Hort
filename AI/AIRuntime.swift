@@ -40,18 +40,35 @@ final class AIRuntime: ObservableObject {
     private var analyzeTail: Task<Void, Never> = Task {}
     /// Serial chain for organize-only / classify batches — can run ahead of analyze.
     private var organizeTail: Task<Void, Never> = Task {}
-    /// Guards concurrent Ollama generate/embed calls across the two queues.
-    private var ollamaLocked = false
     /// IDs already waiting for an organize-only pass (dedupe backfill + tidy).
     private var organizeQueuedIDs = Set<UUID>()
     /// Bumped on cancel so already-chained organize tasks become no-ops.
-    private var organizeGeneration = 0
+    /// `nonisolated(unsafe)` so the OllamaScheduler cancel-gate can read it.
+    nonisolated(unsafe) private var organizeGeneration = 0
     /// Bumped on cancel so already-chained analyze tasks become no-ops.
-    private var analyzeGeneration = 0
+    nonisolated(unsafe) private var analyzeGeneration = 0
     /// True when the user explicitly hit Pause (thermal auto-resume must not clear it).
     private var organizePausedByUser = false
 
     private init() {}
+
+    /// Manual Inspector analysis that shares the Ollama slot with Autopilot
+    /// (prevents concurrent local-model stampede). Streams via `onUpdate`.
+    func analyzeNow(
+        content: String?,
+        imagePath: String?,
+        model: String,
+        onUpdate: @escaping ((summary: String, tags: [String], done: Bool)) -> Void
+    ) async throws {
+        let generation = analyzeGeneration
+        try await withOllamaSlot(priority: false, generation: generation, analyze: true) {
+            if let path = imagePath, FileManager.default.fileExists(atPath: path) {
+                try await OllamaClient.shared.analyzeImage(imagePath: path, model: model, onUpdate: onUpdate)
+            } else if let content, !content.isEmpty {
+                try await OllamaClient.shared.analyze(content: content, model: model, onUpdate: onUpdate)
+            }
+        }
+    }
 
     /// Queues an Autopilot analysis for the given memory. Returns immediately;
     /// the work runs in order behind any analysis already queued or running.
@@ -60,7 +77,7 @@ final class AIRuntime: ObservableObject {
     func enqueueAutopilot(objectID: UUID, content: String, model: String, imagePath: String? = nil) {
         guard !content.isEmpty || imagePath != nil else { return }
         let settings = SettingsStore.shared
-        if settings.aiAutopilotOrganize,
+        if settings.autopilotOrganizeActive,
            let object = MemoryEngine.shared.fetch(id: objectID),
            object.metadata["aiSummary"] != nil {
             // Already analyzed — don't burn another Ollama round-trip for sorting.
@@ -89,7 +106,7 @@ final class AIRuntime: ObservableObject {
     @discardableResult
     func tryQuickOrganize(objectID: UUID, content: String? = nil) -> Bool {
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return false }
+        guard settings.autopilotOrganizeActive else { return false }
         return applyHeuristicOrganize(objectID: objectID, contentPreview: content)
     }
 
@@ -100,7 +117,7 @@ final class AIRuntime: ObservableObject {
     @discardableResult
     func enqueueOrganize(objectID: UUID) -> Bool {
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return false }
+        guard settings.autopilotOrganizeActive else { return false }
         guard let object = MemoryEngine.shared.fetch(id: objectID),
               object.board == nil, !object.isArchived else { return false }
         guard !organizeQueuedIDs.contains(objectID) else { return false }
@@ -120,7 +137,7 @@ final class AIRuntime: ObservableObject {
     @discardableResult
     private func enqueueOrganizeBatch(objectIDs: [UUID]) -> Int {
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return 0 }
+        guard settings.autopilotOrganizeActive else { return 0 }
 
         let fresh = objectIDs.filter { id in
             guard !organizeQueuedIDs.contains(id) else { return false }
@@ -150,7 +167,7 @@ final class AIRuntime: ObservableObject {
     /// Heuristic-only waves auto-continue until the Inbox stops matching locally.
     func backfillOrganize() {
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return }
+        guard settings.autopilotOrganizeActive else { return }
 
         // Resume if the user hit Pause then Tidy again.
         organizePausedByUser = false
@@ -256,19 +273,19 @@ final class AIRuntime: ObservableObject {
         organizeBatchTotal = 0
         organizeBatchDone = 0
         organizeFiledCount = 0
-        ollamaLocked = false
         // Detach old chains so they don't keep the process busy awaiting each other.
         analyzeTail = Task {}
         organizeTail = Task {}
         OllamaClient.shared.cancelInFlightRequests()
+        Task { await OllamaScheduler.shared.cancelAllWaiters() }
         lastError = nil
         refreshOrganizeOutstanding()
     }
 
     /// Live count of unfiled Inbox items (for idle "Tidy more" labels).
+    /// Uses a SQL COUNT — never loads the full inbox on the 15s sidebar poll.
     func refreshOrganizeOutstanding() {
-        let inbox = MemoryEngine.shared.fetchMemories(for: .inbox)
-        let total = AutopilotOrganizer.unfiledInboxCount(from: inbox)
+        let total = MemoryEngine.shared.countUnfiledInbox()
         if isOrganizeBusy {
             organizeInboxOutstanding = max(0, total - organizeRemaining)
         } else {
@@ -288,10 +305,10 @@ final class AIRuntime: ObservableObject {
         queuedCount = max(0, queuedCount - 1)
 
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot else { return }
+        guard settings.autopilotActive else { return }
 
         // Yield the Ollama slot to Inbox sorting — analyze is slower and less urgent.
-        if settings.aiAutopilotOrganize {
+        if settings.autopilotOrganizeActive {
             await waitForOrganizeClearance(generation: generation)
             guard generation == analyzeGeneration else { return }
             // Fast local file before spending a full analyze round-trip.
@@ -399,7 +416,7 @@ final class AIRuntime: ObservableObject {
         }
 
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return }
+        guard settings.autopilotOrganizeActive else { return }
         guard let object = MemoryEngine.shared.fetch(id: objectID) else { return }
         guard object.board == nil, !object.isArchived else {
             lastOrganizeOutcome = .alreadyFiled
@@ -454,7 +471,7 @@ final class AIRuntime: ObservableObject {
         }
 
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return }
+        guard settings.autopilotOrganizeActive else { return }
 
         var llmItems: [OrganizationBatchItem] = []
         for id in objectIDs {
@@ -552,7 +569,7 @@ final class AIRuntime: ObservableObject {
         model: String
     ) async -> Bool {
         let settings = SettingsStore.shared
-        guard settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize else { return false }
+        guard settings.autopilotOrganizeActive else { return false }
 
         // Skip if the user (or a prior pass) already filed this memory.
         guard let object = MemoryEngine.shared.fetch(id: objectID), object.board == nil else {
@@ -750,33 +767,26 @@ final class AIRuntime: ObservableObject {
         }
     }
 
-    /// Exclusive Ollama slot. Organize callers pass `priority: true` so analyze
-    /// keeps yielding while inbox sorting still needs the model.
+    /// Exclusive Ollama slot via `OllamaScheduler`. Organize callers pass
+    /// `priority: true` so analyze keeps yielding while inbox sorting needs the model.
     private func withOllamaSlot(
         priority: Bool,
         generation: Int,
         analyze: Bool,
         _ body: () async throws -> Void
     ) async rethrows {
-        while true {
-            let stillValid = analyze
-                ? generation == analyzeGeneration
-                : generation == organizeGeneration
-            guard stillValid else { return }
-            if priority {
-                if !ollamaLocked { break }
-            } else if !ollamaLocked, !isOrganizeBusy {
-                break
-            }
-            try? await Task.sleep(nanoseconds: 120_000_000)
+        // Analyze still yields to an active organize wave before contending.
+        if !priority {
+            await waitForOrganizeClearance(generation: generation)
         }
-        let stillValid = analyze
-            ? generation == analyzeGeneration
-            : generation == organizeGeneration
-        guard stillValid else { return }
-        ollamaLocked = true
-        defer { ollamaLocked = false }
-        try await body()
+        let stillValid: @Sendable () -> Bool = {
+            analyze ? generation == self.analyzeGeneration : generation == self.organizeGeneration
+        }
+        guard stillValid() else { return }
+        let lane: OllamaScheduler.Priority = priority ? .organize : .analyze
+        _ = try await OllamaScheduler.shared.run(priority: lane, isCancelled: { !stillValid() }) {
+            try await body()
+        }
     }
 
     private func noteFiled(board: String, folder: String?, extraCount: Int = 0) {
@@ -829,9 +839,14 @@ final class AIRuntime: ObservableObject {
 
     private func reembed(objectID: UUID) async {
         guard SettingsStore.shared.semanticEnabled,
-              let object = MemoryEngine.shared.fetch(id: objectID) else { return }
-        // Don't fight organize/analyze for the local model — indexer will retry.
-        guard !isOrganizeBusy, organizePending == 0 else { return }
+              MemoryEngine.shared.fetch(id: objectID) != nil else { return }
+        // Don't fight organize/analyze for the local model — hand off to the
+        // indexer so the dirty summary/tags still get a fresh vector later.
+        guard !isOrganizeBusy, organizePending == 0 else {
+            EmbeddingIndexer.shared.enqueue(objectID)
+            return
+        }
+        let object = MemoryEngine.shared.fetch(id: objectID)!
         let text = MemoryEngine.shared.embeddingText(for: object)
         guard !text.isEmpty else { return }
         let embeddingModel = SettingsStore.shared.embeddingModel
@@ -840,6 +855,7 @@ final class AIRuntime: ObservableObject {
             MemoryEngine.shared.storeEmbedding(id: objectID, vector: vector, model: embeddingModel)
         } catch {
             print("Re-embedding after analysis failed: \(error)")
+            EmbeddingIndexer.shared.enqueue(objectID)
         }
     }
 

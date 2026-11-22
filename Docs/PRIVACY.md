@@ -32,7 +32,19 @@ AI fallback.
 
 Hort stores its database, captured image copies, thumbnails, and single-memory
 exports under `~/Library/Application Support/Hort/`. The folder is marked as
-excluded from system backups where macOS honors that setting.
+excluded from system backups where macOS honors that setting. Directory
+permissions are restricted to the current user (`0700`); asset files use
+`0600`.
+
+The on-disk store is **not encrypted**. Anyone with local access to your macOS
+user account can read captured content. Use FileVault (or full-disk encryption)
+so the data is protected when the Mac is locked or offline. Deleted rows are
+overwritten with SQLite `secure_delete` where supported; a `VACUUM` after bulk
+deletes further shrinks recoverable free pages.
+
+Screenshot capture watches the macOS screenshot folder (Desktop by default, or
+the custom location from `com.apple.screencapture`). While capture is paused,
+new screenshots are not ingested on resume.
 
 The Privacy tab in Settings shows the path and current size and can reveal the
 folder in Finder. "Clear all memories" deletes database records, captured image
