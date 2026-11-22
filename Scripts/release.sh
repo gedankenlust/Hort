@@ -55,7 +55,7 @@ fi
 "Scripts/check.sh"
 
 echo "==> Building ${APP_NAME} ${VERSION}"
-"${BUILD_SCRIPT}" release
+"Scripts/build-app.sh" release
 
 echo "==> Verifying ad-hoc signature"
 codesign --verify --deep --strict "${APP}"
