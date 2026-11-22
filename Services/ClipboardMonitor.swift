@@ -87,6 +87,27 @@ class ClipboardMonitor: ObservableObject {
         return bundleIdentifier == ownBundleIdentifier || excludedBundleIDs.contains(bundleIdentifier)
     }
 
+    /// Soft ceiling for clipboard text. Larger pastes are truncated and marked.
+    static let maxTextCaptureBytes = 256 * 1024
+
+    static func cappedText(_ text: String) -> (text: String, truncated: Bool) {
+        guard let data = text.data(using: .utf8), data.count > maxTextCaptureBytes else {
+            return (text, false)
+        }
+        // Truncate on a character boundary near the byte budget.
+        var end = text.endIndex
+        var bytes = 0
+        for (idx, ch) in text.enumerated() {
+            let chBytes = String(ch).utf8.count
+            if bytes + chBytes > maxTextCaptureBytes {
+                end = text.index(text.startIndex, offsetBy: idx)
+                break
+            }
+            bytes += chBytes
+        }
+        return (String(text[..<end]), true)
+    }
+
     /// First real file URL on the pasteboard, if any (e.g. a file copied in Finder).
     private func firstFileURL(_ pasteboard: NSPasteboard) -> URL? {
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
@@ -175,11 +196,18 @@ class ClipboardMonitor: ObservableObject {
             print("🔗 Captured URL (\(text.count) chars)")
             #endif
         }
-        // 3. Fallback to plain text.
+        // 3. Fallback to plain text. Cap oversized clips so a 50 MB paste
+        //    cannot blow up SQLite / FTS / embeddings.
         else if let text = pasteboard.string(forType: .string) {
-            newObject = MemoryObject(type: .text, content: text)
+            let capped = Self.cappedText(text)
+            var object = MemoryObject(type: .text, content: capped.text)
+            if capped.truncated {
+                object.metadata["truncated"] = "true"
+                object.metadata["originalLength"] = String(text.count)
+            }
+            newObject = object
             #if DEBUG
-            print("📝 Captured text (\(text.count) chars)")
+            print("📝 Captured text (\(capped.text.count) chars\(capped.truncated ? ", truncated" : ""))")
             #endif
         }
 

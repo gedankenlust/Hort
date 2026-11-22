@@ -7,13 +7,14 @@ class MemoryEngine: ObservableObject {
 
     private let dbQueue: DatabaseQueue
     private let fileSystem: FileSystemManager
+    private let repository: MemoryRepository
     @Published var recentMemories: [MemoryObject] = []
     @Published var dataVersion: Int = 0
 
     /// In-memory cache of all stored embeddings so semantic search doesn't reload
     /// every vector from disk on each query. Guarded by `cacheLock` (read from
     /// background search tasks, written from the main-actor indexer).
-    private var cachedEmbeddings: [(id: UUID, vector: [Float])]?
+    private var cachedEmbeddings: [(id: UUID, vector: [Float], model: String)]?
     private let cacheLock = NSLock()
 
     private var cancellables = Set<AnyCancellable>()
@@ -21,7 +22,8 @@ class MemoryEngine: ObservableObject {
     private init() {
         self.dbQueue = DatabaseManager.shared.dbQueue
         self.fileSystem = .shared
-        rebuildSearchIndex()
+        self.repository = MemoryRepository(dbQueue: dbQueue)
+        MemorySearchIndex.ensurePopulated(dbQueue: dbQueue)
         fetchRecent()
     }
 
@@ -29,7 +31,8 @@ class MemoryEngine: ObservableObject {
     init(dbQueue: DatabaseQueue, fileSystem: FileSystemManager = .shared) {
         self.dbQueue = dbQueue
         self.fileSystem = fileSystem
-        rebuildSearchIndex()
+        self.repository = MemoryRepository(dbQueue: dbQueue)
+        MemorySearchIndex.ensurePopulated(dbQueue: dbQueue)
         fetchRecent()
     }
 
@@ -51,69 +54,26 @@ class MemoryEngine: ObservableObject {
 
     func fetchMemories(for selection: SidebarSelection) -> [MemoryObject] {
         do {
-            return try dbQueue.read { db in
-                switch selection {
-                case .inbox:
-                    return try MemoryObject.filter(sql: "isArchived = 0 AND board IS NULL")
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .all:
-                    return try MemoryObject.filter(sql: "isArchived = 0")
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .favorites:
-                    return try MemoryObject.filter(sql: "isArchived = 0 AND isFavorite = 1")
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .archive:
-                    return try MemoryObject.filter(sql: "isArchived = 1")
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .board(let name):
-                    return try MemoryObject.filter(sql: "isArchived = 0 AND board = ?", arguments: [name])
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .folder(let board, let folder):
-                    return try MemoryObject.filter(sql: "isArchived = 0 AND board = ? AND folder = ?", arguments: [board, folder])
-                        .order(Column("createdAt").desc).fetchAll(db)
-                case .tag(let name):
-                    let allNotArchived = try MemoryObject.filter(sql: "isArchived = 0")
-                        .order(Column("createdAt").desc).fetchAll(db)
-                    return allNotArchived.filter { $0.tags.contains(name) }
-                }
-            }
+            return try repository.fetchMemories(for: selection)
         } catch {
             print("Error fetching memories for selection: \(error)")
             return []
         }
     }
 
+    /// Inbox size without loading rows — for idle AI status polling.
+    func countUnfiledInbox() -> Int {
+        do {
+            return try repository.countUnfiledInbox()
+        } catch {
+            print("Error counting unfiled inbox: \(error)")
+            return 0
+        }
+    }
+
     func fetchSidebarData() -> (inbox: Int, all: Int, favorites: Int, archive: Int, boards: [String: Int], folders: [String: Int], tags: [String], tagCounts: [String: Int]) {
         do {
-            return try dbQueue.read { db in
-                let inbox = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM memoryObject WHERE isArchived = 0 AND board IS NULL") ?? 0
-                let all = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM memoryObject WHERE isArchived = 0") ?? 0
-                let favorites = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM memoryObject WHERE isArchived = 0 AND isFavorite = 1") ?? 0
-                let archive = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM memoryObject WHERE isArchived = 1") ?? 0
-                
-                let rows = try Row.fetchAll(db, sql: "SELECT board, folder, tags FROM memoryObject WHERE isArchived = 0")
-                var boardCounts: [String: Int] = [:]
-                var folderCounts: [String: Int] = [:]
-                
-                var tagCounts: [String: Int] = [:]
-                for row in rows {
-                    if let board: String = row["board"] {
-                        boardCounts[board, default: 0] += 1
-                        if let folder: String = row["folder"] {
-                            let key = "\(board)||\(folder)"
-                            folderCounts[key, default: 0] += 1
-                        }
-                    }
-                    if let tagsJSON: String = row["tags"], let data = tagsJSON.data(using: .utf8), let tags = try? JSONDecoder().decode([String].self, from: data) {
-                        for tag in tags { tagCounts[tag, default: 0] += 1 }
-                    }
-                }
-                let filtered = tagCounts
-                    .filter { $0.value >= 2 && !Self.isJunkTag($0.key) }
-                    .map(\.key)
-                    .sorted()
-                return (inbox, all, favorites, archive, boardCounts, folderCounts, filtered, tagCounts)
-            }
+            return try repository.fetchSidebarData()
         } catch {
             print("Error fetching sidebar data: \(error)")
             return (0, 0, 0, 0, [:], [:], [], [:])
@@ -122,10 +82,7 @@ class MemoryEngine: ObservableObject {
 
     func save(_ object: MemoryObject) {
         do {
-            try self.dbQueue.write { db in
-                try object.save(db)
-                try indexObject(object, in: db)
-            }
+            try repository.save(object)
             fetchRecent()
         } catch {
             print("Error saving memory: \(error)")
@@ -136,29 +93,13 @@ class MemoryEngine: ObservableObject {
     /// disk so Undo can restore a visual card. Call `purgeAssociatedFiles`
     /// once the undo window closes without restore.
     func delete(_ object: MemoryObject) {
-        do {
-            _ = try self.dbQueue.write { db in
-                try object.delete(db)
-                try deindex(object.id, in: db)
-                try deindexVector(object.id, in: db)
-            }
-            invalidateEmbeddingCache()
-            fetchRecent()
-        } catch {
-            print("Error deleting memory: \(error)")
-        }
+        delete(ids: [object.id])
     }
 
     func delete(ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
         do {
-            _ = try self.dbQueue.write { db in
-                for id in ids {
-                    try MemoryObject.deleteOne(db, key: id)
-                    try deindex(id, in: db)
-                    try deindexVector(id, in: db)
-                }
-            }
+            try repository.delete(ids: ids)
             invalidateEmbeddingCache()
             fetchRecent()
         } catch {
@@ -292,6 +233,11 @@ class MemoryEngine: ObservableObject {
             if let thumbs = try? fm.contentsOfDirectory(at: fileSystem.thumbnailsURL, includingPropertiesForKeys: nil) {
                 thumbs.forEach { try? fm.removeItem(at: $0) }
             }
+            // Reclaim free pages so deleted clipboard text is less recoverable.
+            // VACUUM cannot run inside a transaction.
+            try? self.dbQueue.writeWithoutTransaction { db in
+                try db.execute(sql: "VACUUM")
+            }
             invalidateEmbeddingCache()
             fetchRecent()
         } catch {
@@ -329,7 +275,7 @@ class MemoryEngine: ObservableObject {
                     mutate(&object)
                     object.updatedAt = Date()
                     try object.save(db)
-                    try self.indexObject(object, in: db)
+                    try MemorySearchIndex.index(object, in: db)
                 }
             }
             fetchRecent()
@@ -349,7 +295,7 @@ class MemoryEngine: ObservableObject {
                         mutate(&object)
                         object.updatedAt = Date()
                         try object.save(db)
-                        try self.indexObject(object, in: db)
+                        try MemorySearchIndex.index(object, in: db)
                     }
                 }
             }
@@ -373,7 +319,7 @@ class MemoryEngine: ObservableObject {
                     }
                     all[i].updatedAt = Date()
                     try all[i].save(db)
-                    try self.indexObject(all[i], in: db)
+                    try MemorySearchIndex.index(all[i], in: db)
                 }
             }
             fetchRecent()
@@ -391,7 +337,7 @@ class MemoryEngine: ObservableObject {
                     all[i].tags.removeAll { $0 == tag }
                     all[i].updatedAt = Date()
                     try all[i].save(db)
-                    try self.indexObject(all[i], in: db)
+                    try MemorySearchIndex.index(all[i], in: db)
                 }
             }
             fetchRecent()
@@ -400,37 +346,20 @@ class MemoryEngine: ObservableObject {
         }
     }
 
-    /// Tags that are purely numeric, date-like, single characters, or
-    /// measurement units are noise from AI analysis and clutter the sidebar.
-    /// Number+short-suffix tags that are meaningful keywords, not units/codes,
-    /// and should survive the junk filter below.
-    private static let numericTagWhitelist: Set<String> = [
-        "3d", "4k", "8k", "2fa", "5g", "4g", "3g", "1080p", "720p", "2d", "3ds", "ios", "y2k",
-    ]
-
+    /// Forwards to `TagPolicy` so existing call sites keep compiling.
     static func isJunkTag(_ tag: String) -> Bool {
-        let t = tag.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.count <= 1 { return true }
-        if numericTagWhitelist.contains(t.lowercased()) { return false }
-        if Double(t) != nil { return true }
-        let junkPatterns = [
-            #"^\d{1,4}[./-]\d{1,2}([./-]\d{2,4})?$"#,  // dates
-            #"^\d+(\.\d+)?\s?[a-z]{1,3}$"#,            // number + short unit suffix (250ml, 12b, 10kg, 30px)
-            #"^\d{4}$"#,                                 // bare years
-        ]
-        for pattern in junkPatterns {
-            if t.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil { return true }
-        }
-        return false
+        TagPolicy.isJunkTag(tag)
     }
 
     // MARK: - Search
 
-    /// Full-text search over the FTS5 index. Returns non-archived matches in
-    /// rank order. Matching is done in Swift against the UUID string because
-    /// MemoryObject ids are persisted as blobs, which don't join cleanly to the
-    /// text `memoryId` column in the FTS table.
-    func keywordSearch(_ query: String) -> [MemoryObject] {
+    /// Full-text search over the FTS5 index. Returns matches in rank order.
+    /// By default archived items are excluded; pass `includeArchived: true`
+    /// when searching from the Archive section.
+    /// Matching is done in Swift against the UUID string because MemoryObject
+    /// ids are persisted as blobs, which don't join cleanly to the text
+    /// `memoryId` column in the FTS table.
+    func keywordSearch(_ query: String, includeArchived: Bool = false) -> [MemoryObject] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let escaped = trimmed.replacingOccurrences(of: "\"", with: "\"\"")
@@ -449,7 +378,7 @@ class MemoryEngine: ObservableObject {
                 let allMatched = try MemoryObject.fetchAll(db, keys: uuids)
                 
                 return allMatched
-                    .filter { !$0.isArchived }
+                    .filter { includeArchived ? $0.isArchived : !$0.isArchived }
                     .sorted { (rank[$0.id.uuidString] ?? 0) < (rank[$1.id.uuidString] ?? 0) }
             }
         } catch {
@@ -461,11 +390,11 @@ class MemoryEngine: ObservableObject {
     /// Hybrid search: keyword (FTS5) fused with semantic (embeddings) via
     /// reciprocal rank fusion. Degrades to keyword-only when semantic search is
     /// off or Ollama can't produce an embedding, so search never breaks.
-    func search(_ query: String) async -> [MemoryObject] {
+    func search(_ query: String, includeArchived: Bool = false) async -> [MemoryObject] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        let keyword = keywordSearch(trimmed)
+        let keyword = keywordSearch(trimmed, includeArchived: includeArchived)
 
         guard SettingsStore.shared.semanticEnabled,
               let semanticIDs = await semanticSearch(trimmed), !semanticIDs.isEmpty else {
@@ -478,7 +407,7 @@ class MemoryEngine: ObservableObject {
         do {
             return try await dbQueue.read { db in
                 try MemoryObject.fetchAll(db, keys: fusedIDs)
-                    .filter { !$0.isArchived }
+                    .filter { includeArchived ? $0.isArchived : !$0.isArchived }
                     .sorted { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
             }
         } catch {
@@ -521,7 +450,8 @@ class MemoryEngine: ObservableObject {
         // embedding-model switch the index may briefly hold mixed dimensions
         // until the rebuild completes.
         let dim = normalizedQuery.count
-        let all = allEmbeddings().filter { $0.vector.count == dim } // already normalized
+        // Same dim AND same model — mixed embedding models must not fuse.
+        let all = allEmbeddings().filter { $0.vector.count == dim && $0.model == model }
         guard !all.isEmpty else { return nil }
 
         return all
@@ -531,47 +461,6 @@ class MemoryEngine: ObservableObject {
             .map(\.id)
     }
 
-    /// Rebuilds the FTS index from scratch. The index table is recreated empty
-    /// on every launch (see DatabaseManager), so this repopulates it.
-    private func rebuildSearchIndex() {
-        do {
-            try self.dbQueue.write { db in
-                try db.execute(sql: "DELETE FROM memorySearch")
-                let all = try MemoryObject.fetchAll(db)
-                for object in all {
-                    try indexObject(object, in: db)
-                }
-            }
-        } catch {
-            print("Error rebuilding search index: \(error)")
-        }
-    }
-
-    private func indexObject(_ object: MemoryObject, in db: Database) throws {
-        try deindex(object.id, in: db)
-        var searchContent = object.content ?? ""
-        if (object.type == .image || object.type == .screenshot), let ocr = object.metadata["ocrText"] {
-            searchContent = ocr
-        }
-        try db.execute(sql: """
-            INSERT INTO memorySearch (memoryId, content, preview, sourceApp, tags)
-            VALUES (?, ?, ?, ?, ?)
-            """, arguments: [
-                object.id.uuidString,
-                searchContent,
-                object.preview,
-                object.sourceApp,
-                object.tags.joined(separator: " ")
-            ])
-    }
-
-    private func deindex(_ id: UUID, in db: Database) throws {
-        try db.execute(sql: "DELETE FROM memorySearch WHERE memoryId = ?", arguments: [id.uuidString])
-    }
-
-    private func deindexVector(_ id: UUID, in db: Database) throws {
-        try db.execute(sql: "DELETE FROM memoryVector WHERE memoryId = ?", arguments: [id.uuidString])
-    }
 
     // MARK: - Semantic index
 
@@ -611,17 +500,29 @@ class MemoryEngine: ObservableObject {
         }
     }
 
-    /// Ids of memories that don't yet have an embedding. Computed as a set
-    /// difference in Swift rather than a SQL join: MemoryObject.id is stored by
-    /// GRDB as a 16-byte UUID blob, while memoryVector.memoryId is the uuid
-    /// string, so the two don't compare directly in SQL.
-    func idsMissingEmbedding() -> [UUID] {
+    /// Ids that need (re)embedding: missing vector, wrong model, or memory
+    /// updated after the vector was written (e.g. AI summary/tags arrived).
+    /// Computed in Swift rather than a SQL join: MemoryObject.id is a UUID blob,
+    /// while memoryVector.memoryId is the uuid string.
+    func idsMissingEmbedding(currentModel: String = SettingsStore.shared.embeddingModel) -> [UUID] {
         do {
             return try dbQueue.read { db in
-                let allIDs = try MemoryObject.fetchAll(db).map(\.id)
-                let indexed = try String.fetchAll(db, sql: "SELECT memoryId FROM memoryVector")
-                let have = Set(indexed.compactMap(UUID.init(uuidString:)))
-                return allIDs.filter { !have.contains($0) }
+                let objects = try MemoryObject.fetchAll(db)
+                let rows = try Row.fetchAll(db, sql: "SELECT memoryId, model, updatedAt FROM memoryVector")
+                var byID: [UUID: (model: String, updatedAt: Date)] = [:]
+                for row in rows {
+                    guard let idString: String = row["memoryId"],
+                          let id = UUID(uuidString: idString),
+                          let model: String = row["model"],
+                          let updatedAt: Date = row["updatedAt"] else { continue }
+                    byID[id] = (model, updatedAt)
+                }
+                return objects.compactMap { object in
+                    guard let existing = byID[object.id] else { return object.id }
+                    if existing.model != currentModel { return object.id }
+                    if object.updatedAt > existing.updatedAt { return object.id }
+                    return nil
+                }
             }
         } catch {
             print("Error listing missing embeddings: \(error)")
@@ -631,7 +532,7 @@ class MemoryEngine: ObservableObject {
 
     /// Loads every stored embedding (already normalized) for in-memory search,
     /// caching the result so repeated searches don't re-read the table.
-    func allEmbeddings() -> [(id: UUID, vector: [Float])] {
+    func allEmbeddings() -> [(id: UUID, vector: [Float], model: String)] {
         cacheLock.lock()
         if let cached = cachedEmbeddings {
             cacheLock.unlock()
@@ -639,15 +540,16 @@ class MemoryEngine: ObservableObject {
         }
         cacheLock.unlock()
 
-        let loaded: [(id: UUID, vector: [Float])]
+        let loaded: [(id: UUID, vector: [Float], model: String)]
         do {
             loaded = try dbQueue.read { db in
-                let rows = try Row.fetchAll(db, sql: "SELECT memoryId, embedding FROM memoryVector")
+                let rows = try Row.fetchAll(db, sql: "SELECT memoryId, embedding, model FROM memoryVector")
                 return rows.compactMap { row in
                     guard let idString: String = row["memoryId"],
                           let id = UUID(uuidString: idString),
-                          let blob: Data = row["embedding"] else { return nil }
-                    return (id, [Float](blob: blob))
+                          let blob: Data = row["embedding"],
+                          let model: String = row["model"] else { return nil }
+                    return (id, [Float](blob: blob), model)
                 }
             }
         } catch {

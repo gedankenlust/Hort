@@ -13,21 +13,33 @@ final class RAGEngine: ObservableObject {
     @Published private(set) var isAnswering = false
     @Published private(set) var errorMessage: String?
 
+    private var askTask: Task<Void, Never>?
+    private var answerGeneration = 0
+
     private init() {}
 
     func ask() {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !isAnswering else { return }
 
+        askTask?.cancel()
+        answerGeneration &+= 1
+        let generation = answerGeneration
+
         answer = ""
         sources = []
         errorMessage = nil
         isAnswering = true
 
-        Task {
-            defer { isAnswering = false }
+        askTask = Task {
+            defer {
+                if answerGeneration == generation {
+                    isAnswering = false
+                }
+            }
 
             let retrieved = await MemoryEngine.shared.retrieve(for: q, limit: 6)
+            guard !Task.isCancelled, answerGeneration == generation else { return }
             guard !retrieved.isEmpty else {
                 errorMessage = L("ask.no_results")
                 return
@@ -37,31 +49,41 @@ final class RAGEngine: ObservableObject {
             let prompt = RAGEngine.buildPrompt(question: q, sources: retrieved)
             let model = SettingsStore.shared.aiModel
             do {
-                try await OllamaClient.shared.generate(prompt: prompt, model: model) { [weak self] token in
-                    DispatchQueue.main.async { self?.answer += token }
+                try await OllamaClient.shared.generate(prompt: prompt, model: model) { token in
+                    Task { @MainActor in
+                        guard RAGEngine.shared.answerGeneration == generation else { return }
+                        RAGEngine.shared.answer += token
+                    }
                 }
             } catch {
+                guard !Task.isCancelled, answerGeneration == generation else { return }
                 errorMessage = error.localizedDescription
             }
         }
     }
 
     func reset() {
+        askTask?.cancel()
+        askTask = nil
+        answerGeneration &+= 1
         question = ""
         answer = ""
         sources = []
         errorMessage = nil
+        isAnswering = false
     }
 
     /// Builds a grounded prompt. Sources are fenced and the model is told to
     /// treat them strictly as data (prompt-injection mitigation) and to answer
     /// only from them, citing notes as [1], [2], …
-    private static func buildPrompt(question: String, sources: [MemoryObject]) -> String {
+    static func buildPrompt(question: String, sources: [MemoryObject]) -> String {
         var context = ""
         for (index, memory) in sources.enumerated() {
-            let text = MemoryEngine.shared.embeddingText(for: memory)
+            let text = sanitizeFence(MemoryEngine.shared.embeddingText(for: memory))
             context += "[\(index + 1)] \(text.prefix(800))\n\n"
         }
+
+        let safeQuestion = sanitizeFence(question)
 
         return """
         You answer questions using only the user's saved notes provided below.
@@ -73,8 +95,15 @@ final class RAGEngine: ObservableObject {
         \(context)
         <<<NOTES>>>
 
-        Question: \(question)
+        Question: \(safeQuestion)
         Answer:
         """
+    }
+
+    /// Neutralize fence tokens that could break out of the NOTES / TEXT blocks.
+    static func sanitizeFence(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "<<<NOTES>>>", with: "<<NOTES>>")
+            .replacingOccurrences(of: "<<<TEXT>>>", with: "<<TEXT>>")
     }
 }

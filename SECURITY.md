@@ -25,13 +25,17 @@ a corrected release is available.
 ## Security boundaries
 
 - Hort stores its database and captured image copies under
-  `~/Library/Application Support/Hort/`.
+  `~/Library/Application Support/Hort/`. The store is unencrypted at rest;
+  FileVault is recommended. Folder permissions are `0700`, files `0600`.
 - Clipboard items marked concealed, transient, or auto-generated are skipped
-  when the corresponding privacy setting is enabled.
+  when the corresponding privacy setting is enabled. Oversized text pastes are
+  truncated before storage.
 - Common password managers are excluded by bundle identifier by default, and
   users can extend that list.
-- Screenshot capture watches new files on the Desktop. It is independent of the
-  foreground-app exclusion list.
+- Screenshot capture watches the configured screenshot folder (Desktop by
+  default). It is independent of the foreground-app exclusion list. Pausing
+  capture reseeds the watcher so screenshots taken while paused are not
+  backfilled.
 - Optional AI requests are sent only to Ollama on `localhost:11434`.
 - Hort has no account system, cloud sync, analytics, or telemetry.
 

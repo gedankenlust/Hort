@@ -59,6 +59,12 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(aiAutopilotOrganize, forKey: Keys.aiAutopilotOrganize) }
     }
 
+    /// True when background analysis should run (master AI + Autopilot).
+    var autopilotActive: Bool { aiEnabled && aiAutopilot }
+
+    /// True when Autopilot should also file into boards/folders.
+    var autopilotOrganizeActive: Bool { autopilotActive && aiAutopilotOrganize }
+
     /// Whether the local semantic index (embeddings) and "Ask your memory" are
     /// enabled. Requires Ollama; off by default like the other AI features.
     @Published var semanticEnabled: Bool {

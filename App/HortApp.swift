@@ -70,7 +70,7 @@ struct HortApp: App {
         // Prefer Inbox sorting over embedding stampede when Organize is on.
         Task { @MainActor in
             let settings = SettingsStore.shared
-            if settings.aiEnabled, settings.aiAutopilot, settings.aiAutopilotOrganize {
+            if settings.autopilotOrganizeActive {
                 AIRuntime.shared.backfillOrganize()
             }
             // Defer embedding backfill slightly so organize heuristics run first.
@@ -123,7 +123,7 @@ struct HortApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("Undo") { app.undoDelete() }
+                Button(LocalizedStringKey("menu.undo")) { app.undoDelete() }
                     .keyboardShortcut("z", modifiers: .command)
                     .disabled(!app.undoToastVisible)
             }
@@ -131,22 +131,22 @@ struct HortApp: App {
             CommandGroup(replacing: .newItem) {}
 
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") { app.showingSettings = true }
+                Button(LocalizedStringKey("menu.settings")) { app.showingSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
             }
 
-            CommandMenu("Navigate") {
-                Button("Inbox") { app.navigate(to: .inbox) }
+            CommandMenu(LocalizedStringKey("menu.navigate")) {
+                Button(LocalizedStringKey("menu.inbox")) { app.navigate(to: .inbox) }
                     .keyboardShortcut("1", modifiers: .command)
-                Button("All Memories") { app.navigate(to: .all) }
+                Button(LocalizedStringKey("menu.all_memories")) { app.navigate(to: .all) }
                     .keyboardShortcut("2", modifiers: .command)
-                Button("Favorites") { app.navigate(to: .favorites) }
+                Button(LocalizedStringKey("menu.favorites")) { app.navigate(to: .favorites) }
                     .keyboardShortcut("3", modifiers: .command)
-                Button("Archive") { app.navigate(to: .archive) }
+                Button(LocalizedStringKey("menu.archive")) { app.navigate(to: .archive) }
                     .keyboardShortcut("4", modifiers: .command)
             }
 
-            CommandMenu("Memory") {
+            CommandMenu(LocalizedStringKey("menu.memory")) {
                 Button(LocalizedStringKey("menu.search")) { app.focusSearch() }
                     .keyboardShortcut("f", modifiers: .command)
                 Button(LocalizedStringKey("menu.ask")) { app.showingAsk = true }

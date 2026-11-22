@@ -188,12 +188,23 @@ class OllamaClient {
     /// far; `done` is true on the final call. Callers should only *persist* tags
     /// when `done` — mid-stream the tag list is half-parsed (e.g. "data-p"
     /// before "data-pipeline"), which would otherwise leak partial tags.
+    /// Soft cap so instructions at the top of the prompt are not truncated away
+    /// when Ollama enforces `num_ctx`.
+    static let maxAnalyzeCharacters = 6000
+
     func analyze(content: String, model: String, onUpdate: @escaping ((summary: String, tags: [String], done: Bool)) -> Void) async throws {
         let url = baseURL.appendingPathComponent("api/generate")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120.0 // Give the local model time to generate
+
+        let clipped = content.count > Self.maxAnalyzeCharacters
+            ? String(content.prefix(Self.maxAnalyzeCharacters))
+            : content
+        let safeContent = clipped
+            .replacingOccurrences(of: "<<<TEXT>>>", with: "<<TEXT>>")
+            .replacingOccurrences(of: "<<<NOTES>>>", with: "<<NOTES>>")
         
         // The text between the markers is untrusted captured content. Instruct
         // the model to treat it strictly as data, not as instructions, so a
@@ -212,7 +223,7 @@ class OllamaClient {
         Do not include any other text, markdown headers, or explanation.
 
         <<<TEXT>>>
-        \(content)
+        \(safeContent)
         <<<TEXT>>>
         """
 

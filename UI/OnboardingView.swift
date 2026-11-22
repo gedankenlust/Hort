@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct OnboardingView: View {
@@ -70,13 +71,27 @@ struct OnboardingView: View {
 
             Spacer()
 
-            // Primary CTA
-            HortButton(
-                title: capture.isCapturing ? "onboarding.stop_capture" : "onboarding.start_capture",
-                icon: capture.isCapturing ? "pause.fill" : "play.fill",
-                style: capture.isCapturing ? .secondary : .primary
-            ) { capture.toggle() }
-            .frame(maxWidth: 240)
+            // First-run prompt — encourage a capture, don't lead with "stop".
+            VStack(spacing: HortSpacing.md) {
+                Text("onboarding.try_copy")
+                    .font(HortTypography.label(size: HortTypography.Size.headline))
+                    .foregroundColor(HortColors.textPrimary)
+
+                Text("onboarding.desktop_hint")
+                    .font(HortTypography.primary(size: HortTypography.Size.bodySmall))
+                    .foregroundColor(HortColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+
+                if !capture.isCapturing {
+                    HortButton(
+                        title: "onboarding.start_capture",
+                        icon: "play.fill",
+                        style: .primary
+                    ) { capture.resume() }
+                    .frame(maxWidth: 240)
+                }
+            }
             .padding(.bottom, HortSpacing.lg)
 
             // Awaiting status

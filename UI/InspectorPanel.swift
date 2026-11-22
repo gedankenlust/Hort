@@ -40,6 +40,7 @@ struct InspectorPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(HortColors.surface)
+        .transaction { $0.animation = nil }
         .onChange(of: memorySelection.selectedMemories) { _, _ in
             synthesisResult = nil
             synthesizing = false
@@ -117,7 +118,11 @@ struct InspectorPanel: View {
 
                 if memory.type == .image || memory.type == .screenshot {
                     section(LocalizedStringKey("inspector.content")) {
-                        imagePreview(for: memory)
+                        InspectorImagePreview(
+                            path: imageAssetPath(for: memory),
+                            iconName: iconName(for: memory.type),
+                            privacyBlurEnabled: settings.privacyBlurEnabled
+                        )
                     }
                     if let ocrText = memory.metadata["ocrText"], !ocrText.isEmpty {
                         section(LocalizedStringKey("inspector.ocr_text")) {
@@ -242,11 +247,12 @@ struct InspectorPanel: View {
                         _ = engine.update(updatedMemory) { _ in }
                     }
                 }
-                if let path = imagePath, FileManager.default.fileExists(atPath: path) {
-                    try await OllamaClient.shared.analyzeImage(imagePath: path, model: model, onUpdate: handler)
-                } else if let content = textContent {
-                    try await OllamaClient.shared.analyze(content: content, model: model, onUpdate: handler)
-                }
+                try await AIRuntime.shared.analyzeNow(
+                    content: textContent,
+                    imagePath: imagePath,
+                    model: model,
+                    onUpdate: handler
+                )
                 await MainActor.run {
                     analyzing = false
                     streamingSummary = ""
@@ -418,11 +424,16 @@ struct InspectorPanel: View {
     }
 
     private func thumbnailPreview(for memory: MemoryObject) -> some View {
-        Group {
-            if let path = memory.thumbnailPath ?? memory.content,
-               (memory.type == .image || memory.type == .screenshot),
-               let image = NSImage(contentsOfFile: path) {
-                Image(nsImage: image)
+        // Cache-only — never decode full assets here during multi-select redraws.
+        let cached: NSImage? = {
+            guard memory.type == .image || memory.type == .screenshot else { return nil }
+            let path = memory.thumbnailPath ?? memory.content
+            guard let path else { return nil }
+            return ImageCache.shared[path]
+        }()
+        return Group {
+            if let cached {
+                Image(nsImage: cached)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .privacyBlur(settings.privacyBlurEnabled, radius: PrivacyBlur.image,
@@ -495,44 +506,14 @@ struct InspectorPanel: View {
             .contentShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
     }
 
-    /// Full-asset / thumbnail preview for image and screenshot cards.
-    @ViewBuilder
-    private func imagePreview(for memory: MemoryObject) -> some View {
-        let path = imageAssetPath(for: memory)
-        Group {
-            if let path, let image = NSImage(contentsOfFile: path) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .frame(maxHeight: 280)
-                    .privacyBlur(settings.privacyBlurEnabled, radius: PrivacyBlur.image,
-                                 disableHitTesting: false)
-            } else {
-                HStack(spacing: HortSpacing.sm) {
-                    Image(systemName: iconName(for: memory.type))
-                        .foregroundColor(HortColors.accent)
-                    Text(L("dashboard.image_asset"))
-                        .font(HortTypography.primary(size: HortTypography.Size.caption))
-                        .foregroundColor(HortColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 80, alignment: .center)
-            }
-        }
-        .padding(HortSpacing.md)
-        .frame(maxWidth: .infinity)
-        .background(HortColors.background)
-        .clipShape(RoundedRectangle(cornerRadius: HortRadius.medium, style: .continuous))
-    }
-
+    /// Prefer thumbnail for inspector chrome (fast); fall back to content path.
+    /// Skip `fileExists` here — missing files just show the empty preview state.
     private func imageAssetPath(for memory: MemoryObject) -> String? {
-        if let content = memory.content,
-           FileManager.default.fileExists(atPath: content) {
-            return content
-        }
-        if let thumb = memory.thumbnailPath,
-           FileManager.default.fileExists(atPath: thumb) {
+        if let thumb = memory.thumbnailPath, !thumb.isEmpty {
             return thumb
+        }
+        if let content = memory.content, content.hasPrefix("/") {
+            return content
         }
         return nil
     }
