@@ -10,6 +10,8 @@ Small, focused contributions are welcome.
 3. Run `Scripts/check.sh`.
 4. Update tests and documentation when behavior changes.
 5. Describe the user impact and privacy impact in the pull request.
+6. If the change is user-visible, bump `VERSION` and add a `CHANGELOG.md`
+   entry in the same PR (see [Docs/DEVELOPMENT.md](Docs/DEVELOPMENT.md)).
 
 Use fabricated test data only. Never add real clipboard contents, screenshots,
 tokens, usernames, home-directory paths, or generated app data to the repository.

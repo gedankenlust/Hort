@@ -2,6 +2,38 @@
 
 All notable changes to Hort are documented here.
 
+The format follows [Keep a Changelog](https://keepachangelog.com/), and Hort
+versions follow [Semantic Versioning](https://semver.org/). The shipping version
+lives in the repo-root `VERSION` file.
+
+## [1.1.0] — 2026-11-22
+
+### Added
+- Exact **Find / Delete duplicates** for memories (extras only; keepers retained).
+- **Privacy blur** for sensitive chrome, plus stronger clipboard/screenshot
+  pause and matching behaviour while capture is paused.
+- **Autopilot organize**: local heuristics first, then batched Ollama classify,
+  with cancel, cool-down, and a serial `OllamaScheduler` (organize > analyze >
+  embed).
+- Persistent FTS index, `TagPolicy`, and a `MemoryRepository` facade behind
+  `MemoryEngine`.
+- Archive-aware keyword search and clearer empty/search states.
+- Inspector **Quick Look** action; async inspector image preview.
+
+### Fixed
+- Tile selection lag at inbox scale: stop running duplicate detection inside
+  `DashboardFeedView` body; avoid republishing `AppState` on every inspector
+  text hover; COUNT-only inbox polling for the Ollama indicator.
+- Feed grid scroll/selection jank and inspector button hit-testing / Dock reopen.
+- Soft-delete undo, board orphaning, asset leaks after undo expiry, and search
+  index gaps.
+- Runtime strings respecting the rendered locale; MacBook sidebar chrome.
+
+### Changed
+- GRDB 6 → 7 (tools-version 6.1, Swift 5 language mode retained).
+- Capture, privacy, and AI hardening documented in `PRIVACY.md` / `SECURITY.md`.
+- Versioning: single `VERSION` file drives the app bundle and release script.
+
 ## [1.0.0] — 2026-07-10
 
 First public release. A local-first visual memory layer for macOS: it quietly

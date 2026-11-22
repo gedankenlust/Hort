@@ -14,7 +14,12 @@ DO_INSTALL="${2:-}"
 
 APP_NAME="Hort"
 BUNDLE_ID="dev.hort.app"
-VERSION="1.0.0"
+# Single source of truth: repo-root VERSION (semver MAJOR.MINOR.PATCH).
+VERSION="$(tr -d '[:space:]' < VERSION)"
+if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Invalid VERSION file contents: '${VERSION}'" >&2
+    exit 1
+fi
 
 DIST="dist"
 APP="${DIST}/${APP_NAME}.app"
