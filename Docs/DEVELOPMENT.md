@@ -19,6 +19,26 @@ Scripts/build-app.sh release install
 `Scripts/check.sh` runs the Swift tests and, when Gitleaks is installed, scans
 the Git history. GitHub Actions runs both checks for every pull request.
 
+## Versioning
+
+Hort uses semantic versioning (`MAJOR.MINOR.PATCH`). The single source of truth
+is the repo-root [`VERSION`](../VERSION) file. It must stay in sync with:
+
+- `CFBundleShortVersionString` / `CFBundleVersion` in the built app
+  (`Scripts/build-app.sh` reads `VERSION`)
+- The latest `## [X.Y.Z]` section in [`CHANGELOG.md`](../CHANGELOG.md)
+- The Git tag `vX.Y.Z` and GitHub Release
+
+Bump rules:
+
+- **PATCH** — bug fixes and internal cleanups with no user-facing feature
+- **MINOR** — new capabilities or noticeable UX improvements (backward compatible)
+- **MAJOR** — breaking changes to data layout or public behavior
+
+Always bump `VERSION` and `CHANGELOG.md` in the same commit (or PR) that lands
+on `main` before tagging a release. Do not invent a ZIP/tag version that
+disagrees with `VERSION`.
+
 ## Release artifact
 
 ```sh
@@ -26,11 +46,25 @@ Scripts/release.sh
 ```
 
 The release script requires a clean working tree, runs checks, builds and
-verifies the ad-hoc signature, confirms the app version, creates the ZIP, and
-writes a matching SHA-256 checksum file under `dist/`.
+verifies the ad-hoc signature, confirms the app version matches `VERSION`,
+creates the ZIP, writes a SHA-256 checksum, and extracts this version's
+changelog section under `dist/`.
 
-The release remains a deliberate step. Review the changelog and artifacts before
-creating a tag and uploading them to GitHub Releases.
+Then tag and publish (from a clean `main`):
+
+```sh
+git tag -a "v$(tr -d '[:space:]' < VERSION)" -m "Hort $(tr -d '[:space:]' < VERSION)"
+git push origin "v$(tr -d '[:space:]' < VERSION)"
+gh release create "v$(tr -d '[:space:]' < VERSION)" \
+  "dist/Hort-$(tr -d '[:space:]' < VERSION).zip" \
+  "dist/Hort-$(tr -d '[:space:]' < VERSION).zip.sha256" \
+  --title "Hort $(tr -d '[:space:]' < VERSION)" \
+  --notes-file "dist/release-notes-$(tr -d '[:space:]' < VERSION).md"
+```
+
+Review the changelog and artifacts before creating the tag. Keep personal
+captures, local databases, and `dist/` out of Git — only the tagged source and
+the uploaded release assets leave this machine.
 
 ## Project layout
 

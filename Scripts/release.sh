@@ -2,23 +2,26 @@
 #
 # Builds a distributable Hort release ZIP.
 #
-#   Scripts/release.sh          # uses VERSION from Scripts/build-app.sh
-#   Scripts/release.sh 1.0.1    # override version for the ZIP name
+#   Scripts/release.sh          # uses repo-root VERSION
+#   Scripts/release.sh 1.1.0    # override (must still match the built app)
 #
 # The app is ad-hoc signed. This does not require an Apple Developer account,
 # but macOS will ask users to approve the app on first launch.
+#
+# Versioning: bump VERSION + CHANGELOG together, merge to main, then run this
+# script and `gh release create vX.Y.Z …`. Never ship a ZIP whose Info.plist
+# version disagrees with the Git tag.
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP_NAME="Hort"
-BUILD_SCRIPT="Scripts/build-app.sh"
 DIST="dist"
 APP="${DIST}/${APP_NAME}.app"
 
 VERSION="${1:-}"
 if [ -z "${VERSION}" ]; then
-    VERSION="$(awk -F'"' '/^VERSION=/{print $2; exit}' "${BUILD_SCRIPT}")"
+    VERSION="$(tr -d '[:space:]' < VERSION)"
 fi
 
 if [ -z "${VERSION}" ]; then
@@ -27,7 +30,14 @@ if [ -z "${VERSION}" ]; then
 fi
 
 if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-    echo "Invalid version '${VERSION}'. Expected a semantic version such as 1.0.1." >&2
+    echo "Invalid version '${VERSION}'. Expected a semantic version such as 1.1.0." >&2
+    exit 1
+fi
+
+FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+if [ "${VERSION}" != "${FILE_VERSION}" ]; then
+    echo "Override version ${VERSION} does not match VERSION file (${FILE_VERSION})." >&2
+    echo "Bump VERSION (and CHANGELOG) first, or pass the matching version." >&2
     exit 1
 fi
 
@@ -72,9 +82,24 @@ fi
 echo "==> Writing SHA-256 checksum"
 (cd "${DIST}" && shasum -a 256 "$(basename "${ZIP}")" > "$(basename "${CHECKSUM}")")
 
+NOTES="${DIST}/release-notes-${VERSION}.md"
+# Emit only this version's CHANGELOG section for the GitHub release body.
+awk -v ver="${VERSION}" '
+  $0 ~ "^## \\[" ver "\\]" { keep=1; print; next }
+  keep && $0 ~ /^## \[/ { exit }
+  keep { print }
+' CHANGELOG.md > "${NOTES}"
+if [ ! -s "${NOTES}" ]; then
+    echo "No CHANGELOG section found for [${VERSION}]." >&2
+    exit 1
+fi
+
 echo "Release artifact ready:"
 echo "  ${ZIP}"
 echo "  ${CHECKSUM}"
+echo "  ${NOTES}"
 echo
 echo "Create the GitHub release with:"
-echo "  gh release create v${VERSION} ${ZIP} ${CHECKSUM} --title \"Hort ${VERSION}\" --notes-file CHANGELOG.md"
+echo "  git tag -a v${VERSION} -m \"Hort ${VERSION}\""
+echo "  git push origin v${VERSION}"
+echo "  gh release create v${VERSION} ${ZIP} ${CHECKSUM} --title \"Hort ${VERSION}\" --notes-file ${NOTES}"
