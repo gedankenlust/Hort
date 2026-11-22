@@ -33,6 +33,8 @@ actor OllamaScheduler {
     }
 
     var isLocked: Bool { locked }
+    /// Waiters parked for the slot (tests use this to avoid sleep races).
+    var pendingWaiterCount: Int { waiters.count }
 
     private func acquire(priority: Priority, isCancelled: @Sendable () -> Bool) async -> Bool {
         if isCancelled() { return false }

@@ -49,31 +49,67 @@ final class OllamaSchedulerTests: XCTestCase {
     func testOrganizePriorityRunsBeforeAnalyze() async throws {
         let scheduler = OllamaScheduler()
         let counter = Counter()
+        let holdGate = Gate()
+        let holdReady = Gate()
 
+        // Hold the slot until both waiters are queued — sleep-based races
+        // flake on CI when the holder finishes before organize enqueues.
         let hold = Task {
             _ = try? await scheduler.run(priority: .analyze, isCancelled: { false }) {
-                try await Task.sleep(nanoseconds: 50_000_000)
+                await holdReady.open()
+                await holdGate.wait()
             }
         }
-        try await Task.sleep(nanoseconds: 5_000_000)
+        await holdReady.wait()
 
         let analyze = Task {
             _ = try? await scheduler.run(priority: .analyze, isCancelled: { false }) {
                 await counter.append("analyze")
             }
         }
-        try await Task.sleep(nanoseconds: 5_000_000)
         let organize = Task {
             _ = try? await scheduler.run(priority: .organize, isCancelled: { false }) {
                 await counter.append("organize")
             }
         }
 
+        // Wait until both jobs are parked, then release — no wall-clock race.
+        for _ in 0..<200 {
+            if await scheduler.pendingWaiterCount >= 2 { break }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        let parked = await scheduler.pendingWaiterCount
+        XCTAssertGreaterThanOrEqual(parked, 2)
+        await holdGate.open()
+
         await hold.value
         await analyze.value
         await organize.value
         let order = await counter.order
         XCTAssertEqual(order, ["organize", "analyze"])
+    }
+
+    /// One-shot async latch for deterministic scheduler tests.
+    private actor Gate {
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var opened = false
+
+        func wait() async {
+            if opened { return }
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                if opened {
+                    cont.resume()
+                } else {
+                    continuation = cont
+                }
+            }
+        }
+
+        func open() {
+            opened = true
+            continuation?.resume()
+            continuation = nil
+        }
     }
 
     func testCancelledWaiterDoesNotRun() async throws {
