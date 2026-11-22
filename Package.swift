@@ -27,6 +27,7 @@ let package = Package(
                 "LICENSE",
                 "ROADMAP.md",
                 "SECURITY.md",
+                "VERSION",
                 "Assets",
                 "Scripts",
                 "Tests",
